@@ -25,22 +25,29 @@ SPADL_CSV_FILE = "wyscount_england_events_spadl.csv"
 MODELS_PKL_FILE = "modelos.pkl"
 
 @st.cache_data(show_spinner="Carregando e processando dados de eventos...")
-@st.cache_data(show_spinner="Carregando e processando dados de eventos (CSV)...")
 def load_and_process_event_data():
-    spadl_csv_path = DATA_DIR / SPADL_CSV_FILE
+    events_path = DATA_DIR / EVENTS_FILE
     matches_path = DATA_DIR / MATCHES_FILE
+    spadl_csv_path = DATA_DIR / SPADL_CSV_FILE
 
-    if not spadl_csv_path.is_file():
-        st.error(f"Arquivo SPADL CSV não encontrado: '{SPADL_CSV_FILE}' em '{DATA_DIR}'.")
+    if not events_path.is_file():
+        st.error(f"Arquivo de eventos não encontrado: '{EVENTS_FILE}' em '{DATA_DIR}'.")
         st.stop()
     if not matches_path.is_file():
         st.error(f"Arquivo de partidas não encontrado: '{MATCHES_FILE}' em '{DATA_DIR}'.")
         st.stop()
 
-    st.info("Carregando dados SPADL diretamente do CSV...")
-    spadl_df = pd.read_csv(spadl_csv_path)
-
+    events = futmetria.load_events(events_path)
     matches = futmetria.load_matches(matches_path)
+
+    if spadl_csv_path.is_file():
+        st.info("Carregando dados SPADL pré-processados do arquivo CSV...")
+        spadl_df = pd.read_csv(spadl_csv_path)
+    else:
+        st.warning("Primeiro processamento: Convertendo eventos para o formato SPADL (isso pode levar um tempo)...")
+        spadl_df = futmetria.spadl_transform(events, matches)
+        spadl_df.to_csv(spadl_csv_path, index=False)
+        st.success("Dados SPADL transformados e salvos!")
 
     atomic_spadl_df = atomicspadl.convert_to_atomic(spadl_df)
     actions = futmetria.gera_a(atomic_spadl_df)
@@ -52,7 +59,6 @@ def load_and_process_event_data():
         how="left",
     )
     return aVaep
-
 
 @st.cache_data(show_spinner="Carregando dados de jogadores...")
 def load_players_data():
