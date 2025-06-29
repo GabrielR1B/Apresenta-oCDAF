@@ -6,7 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import socceraction.atomic.spadl as atomicspadl
 
-import futemetriafailsafe
+import futmetria
 from vaep import vaep
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -37,20 +37,20 @@ def load_and_process_event_data():
         st.error(f"Arquivo de partidas não encontrado: '{MATCHES_FILE}' em '{DATA_DIR}'.")
         st.stop()
 
-    events = futemetriafailsafe.load_events(events_path)
-    matches = futemetriafailsafe.load_matches(matches_path)
+    events = futmetria.load_events(events_path)
+    matches = futmetria.load_matches(matches_path)
 
     if spadl_csv_path.is_file():
         st.info("Carregando dados SPADL pré-processados do arquivo CSV...")
         spadl_df = pd.read_csv(spadl_csv_path)
     else:
         st.warning("Primeiro processamento: Convertendo eventos para o formato SPADL (isso pode levar um tempo)...")
-        spadl_df = futemetriafailsafe.spadl_transform(events, matches)
+        spadl_df = futmetria.spadl_transform(events, matches)
         spadl_df.to_csv(spadl_csv_path, index=False)
         st.success("Dados SPADL transformados e salvos!")
 
     atomic_spadl_df = atomicspadl.convert_to_atomic(spadl_df)
-    actions = futemetriafailsafe.gera_a(atomic_spadl_df)
+    actions = futmetria.gera_a(atomic_spadl_df)
     eventVaep = vaep(spadl_df)
 
     aVaep = actions.merge(
@@ -83,11 +83,11 @@ def load_ml_models():
     if not model_path.is_file():
         st.error(f"Arquivo de modelo não encontrado: '{MODELS_PKL_FILE}' em '{MODELS_DIR}'. Certifique-se de que o modelo foi treinado e salvo.")
         st.stop()
-    return futemetriafailsafe.carregar_modelos(model_path)
+    return futmetria.carregar_modelos(model_path)
 
 @st.cache_data(show_spinner="Gerando rankings...")
 def calculate_player_rankings(_modelos, _aVaep, _players_df):
-    rankings = futemetriafailsafe.get_players_ranking_for_models(_modelos, _aVaep)
+    rankings = futmetria.get_players_ranking_for_models(_modelos, _aVaep)
     return rankings
 
 # --- CARREGAMENTO GLOBAL DE DADOS E MODELOS ---
@@ -155,12 +155,12 @@ elif st.session_state.page == 'player_analysis':
         help="Define o limiar de VAEP para considerar os 'melhores' jogadores."
     )
 
-    overall_best_players_display = futemetriafailsafe.rank_players_overall(
+    overall_best_players_display = futmetria.rank_players_overall(
         rankings_global, # Usando a variável global
         modelos_global, # Usando a variável global
         percentile=percentile_threshold,
     )
-    player_ranking_df = futemetriafailsafe.create_player_ranking_df(
+    player_ranking_df = futmetria.create_player_ranking_df(
         overall_best_players_display,
         players_df_global, # Usando a variável global
     )
@@ -222,7 +222,7 @@ elif st.session_state.page == 'player_analysis':
                 )
 
                 if selected_action_types:
-                    player_figures = futemetriafailsafe.plot_player_rankings(
+                    player_figures = futmetria.plot_player_rankings(
                         selected_player_row,
                         modelos_global,
                         num_players=len(player_ranking_df),
