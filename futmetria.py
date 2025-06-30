@@ -344,7 +344,8 @@ def plot_z(modelos, a, time_id, rem):
         plt.show()
 
 
-def plot_z_rank(modelos, a, time_id, rem):
+def plot_z_rank(modelos, a, time_id):
+    rem = ["red_card", "keeper_catch", "out", "goalkick", "yellow_card", "foul", "freekick"]
     for m in modelos:
         if m.name in rem:
             continue
@@ -390,7 +391,7 @@ def plot_z_rank(modelos, a, time_id, rem):
 
             # Normalizador com melhor time em verde e pior em vermelho
             rank_norm = mcolors.Normalize(vmin=1, vmax=num_teams)
-            cmap = cm.get_cmap("RdYlGn_r")
+            cmap = plt.get_cmap("RdYlGn_r")
 
             color = (
                 cmap(rank_norm(rank)) if rank else (0.5, 0.5, 0.5, 1.0)

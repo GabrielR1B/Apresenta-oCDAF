@@ -60,6 +60,40 @@ def load_and_process_event_data():
     )
     return aVaep
 
+def load_vaep_time(team_id):
+    events_path = DATA_DIR / EVENTS_FILE
+    matches_path = DATA_DIR / MATCHES_FILE
+    spadl_csv_path = DATA_DIR / SPADL_CSV_FILE
+
+    if not events_path.is_file():
+        st.error(f"Arquivo de eventos não encontrado: '{EVENTS_FILE}' em '{DATA_DIR}'.")
+        st.stop()
+    if not matches_path.is_file():
+        st.error(f"Arquivo de partidas não encontrado: '{MATCHES_FILE}' em '{DATA_DIR}'.")
+        st.stop()
+
+    events = futmetria.load_events(events_path)
+    matches = futmetria.load_matches(matches_path)
+
+    if spadl_csv_path.is_file():
+        spadl_df = pd.read_csv(spadl_csv_path)
+    else:
+        st.warning("Primeiro processamento: Convertendo eventos para o formato SPADL (isso pode levar um tempo)...")
+        spadl_df = futmetria.spadl_transform(events, matches)
+        spadl_df.to_csv(spadl_csv_path, index=False)
+        st.success("Dados SPADL transformados e salvos!")
+
+    atomic_spadl_df = atomicspadl.convert_to_atomic(spadl_df)
+    actions = futmetria.gera_a(atomic_spadl_df)
+    eventVaep = vaep(spadl_df)
+
+    aVaep = actions.merge(
+        eventVaep[["original_event_id", "vaep_value"]],
+        on="original_event_id",
+        how="left",
+    )
+    return aVaep
+
 @st.cache_data(show_spinner="Carregando dados de jogadores...")
 def load_players_data():
     players_path = DATA_DIR / PLAYERS_FILE
@@ -104,6 +138,7 @@ def calculate_player_rankings(_modelos, _aVaep, _players_df):
 # --- CARREGAMENTO GLOBAL DE DADOS E MODELOS ---
 # Estas funções serão executadas uma vez (graças ao cache) quando o aplicativo iniciar.
 aVaep_global = load_and_process_event_data()
+# aVaep_time = load_vaep_time()
 players_df_global = load_players_data()
 modelos_global = load_ml_models()
 teams_df = load_teams_data()
@@ -127,77 +162,203 @@ if st.sidebar.button("👕Análise de Jogadores"):
 
 ### --- HOME PAGE --- ###
 if st.session_state.page == 'home':
-    st.title("⚽Ciência  de Dados Aplicada ao Futebol")
+    
+    # --- TÍTULO ---
+    st.title("⚽ Ciência de Dados Aplicada ao Futebol")
     st.markdown("---")
+
+    # --- INTRODUÇÃO ---
     st.header("Estratégias de Times e Detecção de Padrões de Jogo")
-    st.write("""
-    A metodologia VAEP (Valuing Actions by Estimating Probabilities) é uma abordagem avançada para avaliar a contribuição de cada ação individual de um jogador de futebol para o resultado final de uma partida. Ao contrário de métricas tradicionais que apenas contam eventos (passes, desarmes, chutes), o VAEP atribui um valor a cada ação com base em como ela muda a probabilidade de o time marcar um gol ou sofrer um gol.
-
-    **Como funciona:**
-
-    1.  **Eventos para SPADL:** Os dados brutos de eventos do futebol (como os fornecidos pelo StatsBomb) são convertidos para o formato SPADL (Space-adjusted Player Action Data Language). Este formato padroniza as ações e suas coordenadas no campo.
-    2.  **Ações Atômicas:** As ações SPADL são decompostas em "ações atômicas" mais granulares (por exemplo, um passe bem-sucedido pode ser decomposto em "recepção" e "passe").
-    3.  **Modelagem de Probabilidades:** Modelos de Machine Learning (geralmente redes neurais ou modelos de regressão) são treinados para prever a probabilidade de um time marcar ou sofrer um gol a partir de qualquer estado do jogo (posição da bola, jogadores, etc.).
-    4.  **Cálculo do VAEP:** Para cada ação, o valor VAEP é calculado como a diferença entre a probabilidade de gol (ou não sofrer gol) *após* a ação e a probabilidade de gol *antes* da ação.
-        * Um passe que abre a defesa e aumenta drasticamente a chance de gol terá um VAEP alto e positivo.
-        * Um passe errado que resulta em perda de posse e aumenta a chance do adversário marcar terá um VAEP negativo.
-        * Um desarme crucial na defesa terá um VAEP positivo (reduz a chance do adversário marcar).
-    5.  **Análise de Clusters:** As ações dos jogadores são agrupadas em clusters com base em suas características espaciais e contextuais. Isso permite identificar padrões de jogo e as "zonas de influência" onde os jogadores são mais eficazes em diferentes tipos de ações.
-    6.  **Ranking de Jogadores:** Os jogadores são ranqueados com base na soma ou média de seus valores VAEP, ou na sua contribuição em diferentes tipos de ações e clusters, fornecendo uma visão mais profunda de sua performance.
-
-    **Benefícios do VAEP:**
-
-    * **Avaliação Holística:** Valoriza todas as ações, não apenas as que resultam diretamente em gols.
-    * **Contextualização:** Leva em conta a situação do jogo, a posição no campo e a pressão dos adversários.
-    * **Identificação de Talentos:** Ajuda a identificar jogadores que contribuem significativamente para o time, mesmo que não apareçam nas estatísticas tradicionais de gols e assistências.
-    """)
+    st.markdown("""
+    Para entender as estratégias e a eficácia de times e jogadores de futebol, é preciso ir além das estatísticas tradicionais de gols e assistências. Uma ação aparentemente simples, como um passe no meio-campo, pode ser o ponto de partida para um gol, enquanto um cruzamento aparentemente perigoso pode ser uma jogada de baixa probabilidade. 
+    Nossa metodologia foi desenhada para capturar essa complexidade, combinando duas abordagens poderosas: a detecção de padrões de jogo (clusters) com o SoccerMix e a valorização de cada ação individual com o VAEP.    """)
     st.markdown("---")
-    st.caption("Desenvolvido para análise de futebol com dados Wyscout, com clusterização soccermix e métricas VAEP.")
+
+    # --- PILARES DA METODOLOGIA (Em colunas para comparação) ---
+    col1, col2 = st.columns(2, gap="large")
+
+    with col1:
+        st.subheader("Valorizando Ações com VAEP")
+        st.markdown("""
+        **VAEP (Valuing Actions by Estimating Probabilities)** é um framework que atribui um valor numérico a cada ação com bola. Ele mede como cada passe, drible ou chute altera a probabilidade do time marcar ou sofrer um gol.
+        
+        - ✅ **Avaliação Holística:** Valoriza todas as ações, não só as que resultam em gol.
+        - 🌎 **Análise Contextual:** O valor de um passe depende da sua localização e do momento do jogo.
+        - 💎 **Identificação de Talentos:** Revela jogadores que contribuem de formas que as estatísticas tradicionais ignoram.
+        """)
+
+    with col2:
+        st.subheader("Detectando Padrões com SoccerMix")
+        st.markdown("""
+        **SoccerMix** é um algoritmo de clusterização que analisa milhares de ações e as agrupa em "padrões de jogo" ou **ações prototípicas**. Ele nos ajuda a construir um agrupamentos de jogadas-padrão.
+        
+        - 🎨 **Identifica o Estilo:** Mostra se um time prefere passes curtos, cruzamentos ou lançamentos longos.
+        - 🗺️ **Define Zonas de Influência:** Mapeia as áreas do campo onde certos padrões são mais comuns.
+        - 📖 **Cria um "Dicionário de Jogadas":** Transforma dados brutos em táticas compreensíveis, como "construção pelo meio".
+        """)
+    
+    st.markdown("---")
+
+    # --- A SINERGIA ---
+    st.header("Onde Valor Encontra a Tática")
+    st.info("""
+    Ao combinar **VAEP** e **SoccerMix**, alcançamos uma análise muito mais rica. Não apenas identificamos os **padrões** que um time usa (SoccerMix), mas também medimos a **eficácia** de cada um desses padrões (calculando o VAEP médio por cluster). Isso nos permite comparar estilos de jogo de forma objetiva e identificar quais estratégias realmente geram valor em campo.
+    """)
+
+    # --- DETALHES TÉCNICOS (Em um menu expansível) ---
+    st.markdown("""
+    #### Passo a passo do fluxo de geração das análises:
+
+    1.  **Eventos para SPADL:** Os dados brutos de eventos são convertidos para o formato padronizado SPADL, que representa ações com suas coordenadas no campo.
+
+    2.  **Ações Atômicas:** As ações SPADL são decompostas em componentes mais granulares para uma análise detalhada (ex: um passe é dividido em "recepção" e "passe").
+
+    3.  **Análise de Clusters (SoccerMix):** As ações são agrupadas em clusters com base em suas características, identificando os padrões de jogo recorrentes.
+
+    4.  **Modelagem de Probabilidades:** Modelos de Machine Learning são treinados para prever a probabilidade de um time marcar (`P(score)`) ou sofrer um gol (`P(concede)`) a partir de qualquer estado do jogo.
+
+    5.  **Cálculo do VAEP:** Para cada ação, calculamos o valor como a diferença na probabilidade de gol *após* a ação e *antes* da ação.
+        - 📈 **VAEP Positivo:** Ação que aumenta a chance de gol (um passe chave, um desarme crucial).
+        - 📉 **VAEP Negativo:** Ação que aumenta a chance de sofrer um gol (um passe errado na defesa).
+    
+    6.  **Ranking e Análise:** Jogadores e times são ranqueados pela soma de seus valores VAEP, ou pela sua eficácia em diferentes clusters de ações, fornecendo uma visão completa da performance.
+    """)
+
+    st.markdown("---")
+    st.caption("Desenvolvido para análise de futebol com dados Wyscout, com clusterização Soccermix e métricas VAEP.")
 
 ### --- TEAM ANALYSIS --- ###
 elif st.session_state.page == 'team_analysis':
     
-    st.title("⚽ Análise de Ações e Clusters de Clubes")
+    st.title("⚽ Análise de Ações e Clusters por Clubes")
     st.markdown("---")
 
-    # Obter a lista de IDs de times únicos do seu DataFrame 'aVaep_global'
-    unique_team_ids_in_data = aVaep_global['team_id'].unique()
-    relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
+# --- PASSO 1: SELEÇÃO DO TIPO DE ANÁLISE ---
+    # Usamos st.radio para apresentar as opções ao usuário
+    analysis_type = st.radio(
+        label="Escolha qual tipo de análise deseja fazer:",
+        options=[
+            "Análise de clusterização com VAEP por time",
+            "Análise de clusterização com VAEP global",
+            "Análise comparativa entre dois clubes",
+            "Análise Z-Rank - Time x Liga"
+        ],
+        horizontal=True, # Deixa os botões na horizontal
+        label_visibility="collapsed" # Oculta o label principal para um visual mais limpo
+    )
+    st.markdown("---")
 
-    # Dropdown de Clubes
-    team_names_for_dropdown = relevant_teams['name'].sort_values().tolist()
-    selected_team_name = st.selectbox(
-        label="Selecione um clube para análise:",
-        options=team_names_for_dropdown)
-    selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
 
-    # Dropdown de Clusters
-    all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
-    selected_action_name = st.selectbox(
-        label="Selecione uma ação:",
-        options=all_model_names)
+    # --- PASSO 2: EXIBIR A ANÁLISE SELECIONADA ---
+
+    ### --- OPÇÃO 1: Análise de clusterização com VAEP global ---
+    if analysis_type == "Análise de clusterização com VAEP global":
+        
+        st.subheader("Análise de Ações e Clusters por Clube")
+        st.write("Selecione um clube e um tipo de ação para visualizar os padrões de jogo e sua eficácia (VAEP).")
+
+        # Usar colunas para organizar os dropdowns
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Dropdown de Clubes
+            unique_team_ids_in_data = aVaep_global['team_id'].unique()
+            relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
+            team_names_for_dropdown = relevant_teams['name'].sort_values().tolist()
+            selected_team_name = st.selectbox(
+                label="Selecione um clube:",
+                options=team_names_for_dropdown
+            )
+
+        with col2:
+            # Dropdown de Ações (Clusters)
+            all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
+            all_model_names.sort()
+            selected_action_name = st.selectbox(
+                label="Selecione uma ação:",
+                options=all_model_names
+            )
+        
+        # Botão para acionar a análise
+        if st.button("Gerar Análise", type="primary"):
+            if selected_team_name and selected_action_name:
+                with st.spinner("Processando e gerando o gráfico..."):
+                    
+                    # Lógica para obter dados e modelo
+                    selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
+                    vaep_selected_team = aVaep_global[aVaep_global['team_id'] == selected_team_id]
+                    model_selected_action_list = [modelo for modelo in modelos_global if modelo.name == selected_action_name]
+                    
+                    if model_selected_action_list:
+                        model_selected_action = model_selected_action_list[0]
+                        
+                        # Chamar a função de plotagem
+                        plotagem = futmetria.plot(modelos=[model_selected_action], a=vaep_selected_team)
+                        st.pyplot(plotagem)
+                    else:
+                        st.error(f"Não foi possível encontrar o modelo para a ação '{selected_action_name}'.")
+
+    #### --- OPÇÃO 2: Análise de clusterização com VAEP por time ---
+    elif analysis_type == "Análise de clusterização com VAEP por time":
+        st.subheader("Análise de Clusterização Global")
+        st.info("Esta funcionalidade está em desenvolvimento. Aqui você poderá visualizar os padrões de jogo de toda a liga combinada.")
+        # Aqui você adicionaria o código para esta análise no futuro
+
+    ### --- OPÇÃO 3: Análise comparativa entre dois clubes ---
+    elif analysis_type == "Análise comparativa entre dois clubes":
+        st.subheader("Análise Comparativa entre Clubes")
+        st.info("Esta funcionalidade está em desenvolvimento. Aqui você poderá selecionar dois times e comparar seus estilos de jogo e eficácia.")
+        # Aqui você adicionaria o código para esta análise no futuro
     
-    ### --- BOTÃO PARA ACIONAR A ANÁLISE --- ###
-    if st.button("Gerar Análise de Clusters", type="primary"):
-        if selected_team_name and selected_action_name:
-            with st.spinner("Processando e gerando o gráfico..."):
-                
-                selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
-                vaep_selected_team = aVaep_global[aVaep_global['team_id'] == selected_team_id]
-                model_selected_action_list = [modelo for modelo in modelos_global if modelo.name == selected_action_name]
-                
-                if model_selected_action_list:
-                    model_selected_action = model_selected_action_list[0]
+    ### --- OPÇÃO 4: Análise Z-Rank - Time x Liga
+    elif analysis_type == "Análise Z-Rank - Time x Liga":
+        st.subheader("Análise Comparativa Z-Rank - Time x Liga")
+        st.write("Selecione um clube e um tipo de ação para visualizar o quão bom ele é comparado com os demais times da liga")
 
-                    # função de plotagem
-                    plotagem = futmetria.plot(modelos=[model_selected_action], a=vaep_selected_team)
-                    st.pyplot(plotagem)
-                else:
-                    st.error(f"Não foi possível encontrar o modelo para a ação '{selected_action_name}'.")
+        # Usar colunas para organizar os dropdowns
+        col1, col2 = st.columns(2)
 
+        with col1:
+            # Dropdown de Clubes
+            unique_team_ids_in_data = aVaep_global['team_id'].unique()
+            relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
+            team_names_for_dropdown = relevant_teams['name'].sort_values().tolist()
+            selected_team_name = st.selectbox(
+                label="Selecione um clube:",
+                options=team_names_for_dropdown
+            )
+
+        with col2:
+            # Dropdown de Ações (Clusters)
+            all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
+            all_model_names.sort()
+            selected_action_name = st.selectbox(
+                label="Selecione uma ação:",
+                options=all_model_names
+            )
+        
+        # Botão para acionar a análise
+        if st.button("Gerar Análise", type="primary"):
+            if selected_team_name and selected_action_name:
+                with st.spinner("Processando e gerando o gráfico..."):
+                    
+                    # Lógica para obter dados e modelo
+                    selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
+                    vaep_selected_team = aVaep_global[aVaep_global['team_id'] == selected_team_id]
+                    model_selected_action_list = [modelo for modelo in modelos_global if modelo.name == selected_action_name]
+                    
+                    if model_selected_action_list:
+                        model_selected_action = model_selected_action_list[0]
+                        
+                        # Chamar a função de plotagem
+                        plotagem = futmetria.plot_z_rank(modelos=[model_selected_action], a=vaep_selected_team, time_id=selected_team_id)
+                        st.pyplot(plotagem)
+                    else:
+                        st.error(f"Não foi possível encontrar o modelo para a ação '{selected_action_name}'.")
+        
+    
     st.markdown("---")
     st.caption("Desenvolvido para análise de futebol com dados Wyscout, com clusterização soccermix e métricas VAEP.")
-
 
 ### --- PLAYER ANALYSIS --- ###
 elif st.session_state.page == 'player_analysis':
