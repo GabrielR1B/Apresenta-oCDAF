@@ -163,7 +163,8 @@ def gera_exp(cat_weights):
 # __________________________________________________________________________________________________________________________________________________________#
 
 
-def plot(modelos, a, rem):
+def plot(modelos, a):
+    rem = ["red_card", "keeper_catch", "out", "goalkick", "shot_penalty", "yellow_card", "foul", "freekick"]
     for m in modelos:
         if m.name in rem:
             continue
@@ -187,7 +188,7 @@ def plot(modelos, a, rem):
             vmin=cluster_counts.min(), vmax=cluster_counts.max()
         )
 
-        cmap = cm.get_cmap("RdYlGn")  # vermelho → amarelo → verde
+        cmap = plt.get_cmap("RdYlGn")  # vermelho → amarelo → verde
 
         # Campo
         pitch = Pitch(
@@ -242,7 +243,7 @@ def plot(modelos, a, rem):
             gauss = m.submodels[cluster_id]
             add_ellips(ax, gauss.mean, gauss.cov, color=color, alpha=1)
 
-        plt.show()
+        return fig
 
 
 def plot_z(modelos, a, time_id, rem):

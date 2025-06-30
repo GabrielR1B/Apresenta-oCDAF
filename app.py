@@ -8,7 +8,7 @@ import socceraction.atomic.spadl as atomicspadl
 
 import futmetria
 from vaep import vaep
-
+st.set_option('deprecation.showPyplotGlobalUse', False)
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -21,6 +21,7 @@ MODELS_DIR = BASE_DIR / "modelos"
 EVENTS_FILE = "events_England.json"
 MATCHES_FILE = "matches_England.json"
 PLAYERS_FILE = "players.json"
+TEAMS_FILE = "teams.json"
 SPADL_CSV_FILE = "wyscount_england_events_spadl.csv"
 MODELS_PKL_FILE = "modelos.pkl"
 
@@ -41,7 +42,6 @@ def load_and_process_event_data():
     matches = futmetria.load_matches(matches_path)
 
     if spadl_csv_path.is_file():
-        st.info("Carregando dados SPADL pré-processados do arquivo CSV...")
         spadl_df = pd.read_csv(spadl_csv_path)
     else:
         st.warning("Primeiro processamento: Convertendo eventos para o formato SPADL (isso pode levar um tempo)...")
@@ -77,6 +77,17 @@ def load_players_data():
     )
     return players
 
+@st.cache_data(show_spinner="Carregando dados de clubes...")
+def load_teams_data():
+    """Carrega os dados dos times a partir de um arquivo JSON."""
+    teams_path = DATA_DIR / TEAMS_FILE
+    if not teams_path.is_file():
+        st.error(f"Arquivo de clubes não encontrado: '{TEAMS_FILE}' em '{DATA_DIR}'.")
+        st.stop()
+
+    teams = pd.read_json(teams_path)
+    return teams
+
 @st.cache_resource(show_spinner="Carregando modelos de VAEP...")
 def load_ml_models():
     model_path = MODELS_DIR / MODELS_PKL_FILE
@@ -95,6 +106,7 @@ def calculate_player_rankings(_modelos, _aVaep, _players_df):
 aVaep_global = load_and_process_event_data()
 players_df_global = load_players_data()
 modelos_global = load_ml_models()
+teams_df = load_teams_data()
 if modelos_global is None:
     st.error("Modelos essenciais não puderam ser carregados. Verifique os arquivos do modelo.")
     st.stop()
@@ -108,10 +120,12 @@ if 'page' not in st.session_state:
 
 if st.sidebar.button("Página Inicial"):
     st.session_state.page = 'home'
+if st.sidebar.button("🥅Análise de Clubes"):
+    st.session_state.page = 'team_analysis'
 if st.sidebar.button("👕Análise de Jogadores"):
     st.session_state.page = 'player_analysis'
 
-
+### --- HOME PAGE --- ###
 if st.session_state.page == 'home':
     st.title("⚽Ciência  de Dados Aplicada ao Futebol")
     st.markdown("---")
@@ -138,8 +152,43 @@ if st.session_state.page == 'home':
     * **Identificação de Talentos:** Ajuda a identificar jogadores que contribuem significativamente para o time, mesmo que não apareçam nas estatísticas tradicionais de gols e assistências.
     """)
     st.markdown("---")
+    st.caption("Desenvolvido para análise de futebol com dados Wyscout, com métricas VAEP e soccermix.")
+
+
+### --- TEAM ANALYSIS --- ###
+elif st.session_state.page == 'team_analysis':
+    
+    st.title("⚽ Análise de Ações e Clusters de Clubes")
+    st.markdown("---")
+
+    # Obter a lista de IDs de times únicos do seu DataFrame 'aVaep_global'
+    unique_team_ids_in_data = aVaep_global['team_id'].unique()
+    relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
+
+    # Dropdown de Clubes
+    team_names_for_dropdown = relevant_teams['name'].sort_values().tolist()
+    selected_team_name = st.selectbox(
+        label="Selecione um clube para análise:",
+        options=team_names_for_dropdown)
+    selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
+
+    # Dropdown de Clusters
+    all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
+    selected_action_name = st.selectbox(
+        label="Selecione uma ação:",
+        options=all_model_names)
+    
+    model_selected_action = [modelo for modelo in modelos_global if modelo.name == selected_action_name]
+    vaep_selected_team = aVaep_global[aVaep_global['team_id'] == selected_team_id]
+
+    plotagem = futmetria.plot(modelos=model_selected_action, a=aVaep_global)
+    st.pyplot(plotagem)
+
+    st.markdown("---")
     st.caption("Desenvolvido para análise de futebol com dados StatsBomb e métricas VAEP.")
 
+
+### --- PLAYER ANALYSIS --- ###
 elif st.session_state.page == 'player_analysis':
     st.title("⚽ Análise de Ações e Ranking de Jogadores")
     st.markdown("---")
@@ -247,6 +296,7 @@ elif st.session_state.page == 'player_analysis':
 
     else:
         st.warning("Nenhum jogador encontrado para o percentil selecionado. Tente ajustar o percentil na barra lateral.")
-
+    
     st.markdown("---")
     st.caption("Desenvolvido para análise de futebol com dados StatsBomb e métricas VAEP.")
+
