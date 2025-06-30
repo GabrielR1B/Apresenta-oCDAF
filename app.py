@@ -152,8 +152,7 @@ if st.session_state.page == 'home':
     * **Identificação de Talentos:** Ajuda a identificar jogadores que contribuem significativamente para o time, mesmo que não apareçam nas estatísticas tradicionais de gols e assistências.
     """)
     st.markdown("---")
-    st.caption("Desenvolvido para análise de futebol com dados Wyscout, com métricas VAEP e soccermix.")
-
+    st.caption("Desenvolvido para análise de futebol com dados Wyscout, com clusterização soccermix e métricas VAEP.")
 
 ### --- TEAM ANALYSIS --- ###
 elif st.session_state.page == 'team_analysis':
@@ -178,14 +177,26 @@ elif st.session_state.page == 'team_analysis':
         label="Selecione uma ação:",
         options=all_model_names)
     
-    model_selected_action = [modelo for modelo in modelos_global if modelo.name == selected_action_name]
-    vaep_selected_team = aVaep_global[aVaep_global['team_id'] == selected_team_id]
+    ### --- BOTÃO PARA ACIONAR A ANÁLISE --- ###
+    if st.button("Gerar Análise de Clusters", type="primary"):
+        if selected_team_name and selected_action_name:
+            with st.spinner("Processando e gerando o gráfico..."):
+                
+                selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
+                vaep_selected_team = aVaep_global[aVaep_global['team_id'] == selected_team_id]
+                model_selected_action_list = [modelo for modelo in modelos_global if modelo.name == selected_action_name]
+                
+                if model_selected_action_list:
+                    model_selected_action = model_selected_action_list[0]
 
-    plotagem = futmetria.plot(modelos=model_selected_action, a=aVaep_global)
-    st.pyplot(plotagem)
+                    # função de plotagem
+                    plotagem = futmetria.plot(modelos=[model_selected_action], a=vaep_selected_team)
+                    st.pyplot(plotagem)
+                else:
+                    st.error(f"Não foi possível encontrar o modelo para a ação '{selected_action_name}'.")
 
     st.markdown("---")
-    st.caption("Desenvolvido para análise de futebol com dados StatsBomb e métricas VAEP.")
+    st.caption("Desenvolvido para análise de futebol com dados Wyscout, com clusterização soccermix e métricas VAEP.")
 
 
 ### --- PLAYER ANALYSIS --- ###
@@ -298,5 +309,5 @@ elif st.session_state.page == 'player_analysis':
         st.warning("Nenhum jogador encontrado para o percentil selecionado. Tente ajustar o percentil na barra lateral.")
     
     st.markdown("---")
-    st.caption("Desenvolvido para análise de futebol com dados StatsBomb e métricas VAEP.")
+    st.caption("Desenvolvido para análise de futebol com dados Wyscout, com clusterização soccermix e métricas VAEP.")
 

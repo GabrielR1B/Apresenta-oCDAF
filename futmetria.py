@@ -164,7 +164,7 @@ def gera_exp(cat_weights):
 
 
 def plot(modelos, a):
-    rem = ["red_card", "keeper_catch", "out", "goalkick", "shot_penalty", "yellow_card", "foul", "freekick"]
+    rem = ["red_card", "keeper_catch", "out", "goalkick", "yellow_card", "foul", "freekick"]
     for m in modelos:
         if m.name in rem:
             continue
@@ -243,6 +243,17 @@ def plot(modelos, a):
             gauss = m.submodels[cluster_id]
             add_ellips(ax, gauss.mean, gauss.cov, color=color, alpha=1)
 
+        ### --- ADICIONANDO A LEGENDA DE CORES (A MUDANÇA PRINCIPAL) --- ###
+        sm = cm.ScalarMappable(cmap=cmap, norm=vaep_norm)
+        sm.set_array([])
+
+        # Adicionar a barra de legenda à figura
+        cbar = fig.colorbar(sm, ax=ax, orientation='horizontal', fraction=0.03, pad=0.04)
+        
+        # Definir o rótulo da barra de cores
+        cbar.set_label('Qualidade da Ação dado pela métrica VAEP\nVerde = Positivo / Vermelho = Negativo', 
+                   fontsize=12, labelpad=15)
+        
         return fig
 
 
