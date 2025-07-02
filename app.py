@@ -25,6 +25,40 @@ TEAMS_FILE = "teams.json"
 SPADL_CSV_FILE = "wyscount_england_events_spadl.csv"
 MODELS_PKL_FILE = "modelos.pkl"
 
+# --- MAPPING FOR ACTION NAMES ---
+ACTION_NAME_TRANSLATIONS = {
+    "pass": "Passe",
+    "receival": "Recepção",
+    "dribble": "Drible",
+    "shot": "Chute",
+    "take_out": "Desarme",
+    "clearance": "Corte",
+    "foul": "Falta",
+    "cross": "Cruzamento",
+    "interception": "Interceptação",
+    "freekick": "Falta Cobrada", # Corrected from "Bola Parada (Falta)" for conciseness
+    "corner": "Escanteio",
+    "throw_in": "Arremesso Lateral",
+    "goalkeeper_action": "Ação do Goleiro",
+    "ball_out": "Bola Fora",
+    # Missing terms from the screenshot:
+    "bad_touch": "Domínio Ruim",
+    "goal": "Gol",
+    "goalkick": "Tiro de Meta",
+    "keeper_catch": "Defesa do Goleiro",
+    "offside": "Impedimento",
+    "out": "Fora", # This might be redundant with "Bola Fora" depending on context
+    "owngoal": "Gol Contra",
+    "red_card": "Cartão Vermelho",
+    "shot_penalty": "Pênalti",
+    "tackle": "Carrinho",
+    "take_on": "Drible Tentado", # or "Tentativa de Drible"
+    "yellow_card": "Cartão Amarelo",
+}
+
+# --- Reverse mapping for internal use ---
+REVERSE_ACTION_TRANSLATIONS = {v: k for k, v in ACTION_NAME_TRANSLATIONS.items()}
+
 @st.cache_data(show_spinner="Carregando e processando dados de eventos...")
 def load_and_process_event_data():
     events_path = DATA_DIR / EVENTS_FILE
@@ -310,12 +344,20 @@ elif st.session_state.page == 'team_analysis':
         with col2:
             # Multiselect de Ações (Clusters)
             all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
-            all_model_names.sort()
-            selected_action_names = st.multiselect(
+            # Translate the model names for display
+            translated_model_names = [ACTION_NAME_TRANSLATIONS.get(name, name) for name in all_model_names]
+            translated_model_names.sort()
+            
+            # Get default selection in translated form
+            default_translated_selection = [ACTION_NAME_TRANSLATIONS["pass"]] if "pass" in all_model_names else []
+
+            selected_translated_action_names = st.multiselect(
                 label="Selecione uma ou mais ações:",
-                options=all_model_names,
-                default=["pass"] if "pass" in all_model_names else [] # Default selection for convenience
+                options=translated_model_names,
+                default=default_translated_selection
             )
+            # Convert back to original names for internal logic
+            selected_action_names = [REVERSE_ACTION_TRANSLATIONS.get(name, name) for name in selected_translated_action_names]
         
         # Botão para acionar a análise
         if st.button("Gerar Análise", type="primary"):
@@ -330,7 +372,7 @@ elif st.session_state.page == 'team_analysis':
                     if models_to_plot:
                         # Call plot function for each selected model
                         for model_selected_action in models_to_plot:
-                            st.write(f"#### Gráfico para: {model_selected_action.name} ({selected_team_name})")
+                            st.write(f"#### Gráfico para: {ACTION_NAME_TRANSLATIONS.get(model_selected_action.name, model_selected_action.name)} ({selected_team_name})")
                             plotagem = futmetria.plot(
                                 modelos=[model_selected_action],
                                 a=aVaep_global[aVaep_global['team_id'] == selected_team_id] # Filter global data for the selected team
@@ -364,12 +406,20 @@ elif st.session_state.page == 'team_analysis':
         with col2:
             # Multiselect de Ações (Clusters)
             all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
-            all_model_names.sort()
-            selected_action_names = st.multiselect(
+            # Translate the model names for display
+            translated_model_names = [ACTION_NAME_TRANSLATIONS.get(name, name) for name in all_model_names]
+            translated_model_names.sort()
+            
+            # Get default selection in translated form
+            default_translated_selection = [ACTION_NAME_TRANSLATIONS["pass"]] if "pass" in all_model_names else []
+
+            selected_translated_action_names = st.multiselect(
                 label="Selecione uma ou mais ações:",
-                options=all_model_names,
-                default=["pass"] if "pass" in all_model_names else [] # Default selection for convenience
+                options=translated_model_names,
+                default=default_translated_selection
             )
+            # Convert back to original names for internal logic
+            selected_action_names = [REVERSE_ACTION_TRANSLATIONS.get(name, name) for name in selected_translated_action_names]
         
         # Botão para acionar a análise
         if st.button("Gerar Análise", type="primary"):
@@ -386,7 +436,7 @@ elif st.session_state.page == 'team_analysis':
                         
                         if models_to_plot:
                             for model_selected_action in models_to_plot:
-                                st.write(f"#### Gráfico para: {model_selected_action.name} ({selected_team_name})")
+                                st.write(f"#### Gráfico para: {ACTION_NAME_TRANSLATIONS.get(model_selected_action.name, model_selected_action.name)} ({selected_team_name})")
                                 plotagem = futmetria.plot(modelos=[model_selected_action], a=vaep_selected_team)
                                 st.pyplot(plotagem)
                                 plt.close(plotagem) # Close the plot to prevent memory issues
@@ -422,12 +472,20 @@ elif st.session_state.page == 'team_analysis':
         with col2:
             # Multiselect de Ações (Clusters)
             all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
-            all_model_names.sort()
-            selected_action_names = st.multiselect(
+            # Translate the model names for display
+            translated_model_names = [ACTION_NAME_TRANSLATIONS.get(name, name) for name in all_model_names]
+            translated_model_names.sort()
+
+            # Get default selection in translated form
+            default_translated_selection = [ACTION_NAME_TRANSLATIONS["pass"]] if "pass" in all_model_names else []
+
+            selected_translated_action_names = st.multiselect(
                 label="Selecione uma ou mais ações:",
-                options=all_model_names,
-                default=["pass"] if "pass" in all_model_names else [] # Default selection for convenience
+                options=translated_model_names,
+                default=default_translated_selection
             )
+            # Convert back to original names for internal logic
+            selected_action_names = [REVERSE_ACTION_TRANSLATIONS.get(name, name) for name in selected_translated_action_names]
         
         # Botão para acionar a análise
         if st.button("Gerar Análise", type="primary"):
@@ -439,7 +497,7 @@ elif st.session_state.page == 'team_analysis':
                     
                     if models_to_plot:
                         for model_selected_action in models_to_plot:
-                            st.write(f"#### Gráfico Z-Rank para: {model_selected_action.name} ({selected_team_name})")
+                            st.write(f"#### Gráfico Z-Rank para: {ACTION_NAME_TRANSLATIONS.get(model_selected_action.name, model_selected_action.name)} ({selected_team_name})")
                             plotagem = futmetria.plot_z_rank(modelos=[model_selected_action], a=aVaep_global, time_id=selected_team_id)
                             st.pyplot(plotagem)
                             plt.close(plotagem) # Close the plot to prevent memory issues
@@ -545,18 +603,22 @@ elif st.session_state.page == 'player_analysis':
                     if model_name in selected_player_row["clusters"]:
                         if selected_player_row["clusters"][model_name]:
                             available_actions_for_player.append(model_name)
+            
+            # Translate the available action names for display
+            translated_available_actions_for_player = [ACTION_NAME_TRANSLATIONS.get(name, name) for name in available_actions_for_player]
+            translated_available_actions_for_player.sort()
 
-            available_actions_for_player = sorted(available_actions_for_player)
+            default_translated_selection = [ACTION_NAME_TRANSLATIONS["receival"]] if "receival" in available_actions_for_player else []
 
-            default_selection = ["receival"] if "receival" in available_actions_for_player else []
-
-            if available_actions_for_player:
-                selected_action_types = st.multiselect(
+            if translated_available_actions_for_player:
+                selected_translated_action_types = st.multiselect(
                     "Selecione o(s) tipo(s) de ação para plotar:",
-                    options=available_actions_for_player,
-                    default=default_selection,
+                    options=translated_available_actions_for_player,
+                    default=default_translated_selection,
                     help="Cada tipo de ação corresponde a um modelo e será plotado em um gráfico separado."
                 )
+                # Convert back to original names for internal logic
+                selected_action_types = [REVERSE_ACTION_TRANSLATIONS.get(name, name) for name in selected_translated_action_types]
 
                 if selected_action_types:
                     player_figures = futmetria.plot_player_rankings(
@@ -568,7 +630,7 @@ elif st.session_state.page == 'player_analysis':
 
                     if player_figures:
                         for action_type, fig_plot in player_figures.items():
-                            st.write(f"#### Gráfico para: {action_type}")
+                            st.write(f"#### Gráfico para: {ACTION_NAME_TRANSLATIONS.get(action_type, action_type)}")
                             st.pyplot(fig_plot)
                             plt.close(fig_plot)
                     else:
