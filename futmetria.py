@@ -164,7 +164,15 @@ def gera_exp(cat_weights):
 
 
 def plot(modelos, a):
-    rem = ["red_card", "keeper_catch", "out", "goalkick", "yellow_card", "foul", "freekick"]
+    rem = [
+        "red_card",
+        "keeper_catch",
+        "out",
+        "goalkick",
+        "yellow_card",
+        "foul",
+        "freekick",
+    ]
     for m in modelos:
         if m.name in rem:
             continue
@@ -248,12 +256,17 @@ def plot(modelos, a):
         sm.set_array([])
 
         # Adicionar a barra de legenda à figura
-        cbar = fig.colorbar(sm, ax=ax, orientation='horizontal', fraction=0.03, pad=0.04)
-        
+        cbar = fig.colorbar(
+            sm, ax=ax, orientation="horizontal", fraction=0.03, pad=0.04
+        )
+
         # Definir o rótulo da barra de cores
-        cbar.set_label('Qualidade da Ação dado pela métrica VAEP\nVermelho = Baixo | Verde = Alto', 
-                   fontsize=12, labelpad=15)
-        
+        cbar.set_label(
+            "Qualidade da Ação dado pela métrica VAEP\nVermelho = Baixo | Verde = Alto",
+            fontsize=12,
+            labelpad=15,
+        )
+
         return fig
 
 
@@ -345,7 +358,15 @@ def plot_z(modelos, a, time_id, rem):
 
 
 def plot_z_rank(modelos, a, time_id):
-    rem = ["red_card", "keeper_catch", "out", "goalkick", "yellow_card", "foul", "freekick"]
+    rem = [
+        "red_card",
+        "keeper_catch",
+        "out",
+        "goalkick",
+        "yellow_card",
+        "foul",
+        "freekick",
+    ]
     for m in modelos:
         if m.name in rem:
             continue
@@ -867,10 +888,14 @@ def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
 
         # Contagem de ações por cluster
         cluster_counts = evento["cluster"].value_counts()
-        count_norm = mcolors.Normalize(vmin=cluster_counts.min(), vmax=cluster_counts.max())
+        count_norm = mcolors.Normalize(
+            vmin=cluster_counts.min(), vmax=cluster_counts.max()
+        )
 
         # Campo
-        pitch = Pitch(pitch_type='custom', pitch_length=105, pitch_width=68, line_zorder=2)
+        pitch = Pitch(
+            pitch_type="custom", pitch_length=105, pitch_width=68, line_zorder=2
+        )
         fig, ax = pitch.draw(figsize=(12, 8))
         ax.set_title(f"Melhor Jogador por Cluster - {m.name}", fontsize=16)
 
@@ -896,7 +921,6 @@ def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
                     perc_por_cluster[cluster_id] = (-1, 0)
             else:
                 perc_por_cluster[cluster_id] = (-1, 0)
-
 
         # Normalizador de cores baseado na melhor performance relativa
         if max_percs:
@@ -933,14 +957,20 @@ def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
             y_end_stretched = y_end + stretch_factor * dy / norm_vec
 
             # Contorno preto
-            ax.annotate("",
-                        xy=(x_end_stretched, y_end_stretched), xytext=(x_start, y_start),
-                        arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3))
+            ax.annotate(
+                "",
+                xy=(x_end_stretched, y_end_stretched),
+                xytext=(x_start, y_start),
+                arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3),
+            )
 
             # Seta colorida
-            ax.annotate("",
-                        xy=(x_end, y_end), xytext=(x_start, y_start),
-                        arrowprops=dict(arrowstyle="->", color=color, lw=lw))
+            ax.annotate(
+                "",
+                xy=(x_end, y_end),
+                xytext=(x_start, y_start),
+                arrowprops=dict(arrowstyle="->", color=color, lw=lw),
+            )
 
             # Elipse
             gauss = m.submodels[cluster_id]
@@ -948,12 +978,18 @@ def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
 
             # Nome do jogador
             ax.text(
-                gauss.mean[0], gauss.mean[1], nome_jogador,
-                color="white", fontsize=10, ha="center", va="center",
-                path_effects=[withStroke(linewidth=3, foreground="black")]
+                gauss.mean[0],
+                gauss.mean[1],
+                nome_jogador,
+                color="white",
+                fontsize=10,
+                ha="center",
+                va="center",
+                path_effects=[withStroke(linewidth=3, foreground="black")],
             )
 
         plt.show()
+
 
 def plot_modelo_vaep(m, evento, ax, title):
     evento = evento[evento.type_name == m.name].copy()
@@ -1000,14 +1036,20 @@ def plot_modelo_vaep(m, evento, ax, title):
         y_end_stretched = y_end + stretch_factor * dy / norm
 
         # Contorno preto
-        ax.annotate("",
-            xy=(x_end_stretched, y_end_stretched), xytext=(x_start, y_start),
-            arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3))
+        ax.annotate(
+            "",
+            xy=(x_end_stretched, y_end_stretched),
+            xytext=(x_start, y_start),
+            arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3),
+        )
 
         # Seta colorida
-        ax.annotate("",
-            xy=(x_end, y_end), xytext=(x_start, y_start),
-            arrowprops=dict(arrowstyle="->", color=color, lw=lw))
+        ax.annotate(
+            "",
+            xy=(x_end, y_end),
+            xytext=(x_start, y_start),
+            arrowprops=dict(arrowstyle="->", color=color, lw=lw),
+        )
 
         # Elipse
         gauss = m.submodels[cluster_id]
@@ -1023,11 +1065,17 @@ def plot_modelo_vaep(m, evento, ax, title):
             angle += 180
 
         ax.text(
-            text_x, text_y, f"{count}", fontsize=10,
-            color="white", ha="center", va="center",
+            text_x,
+            text_y,
+            f"{count}",
+            fontsize=10,
+            color="white",
+            ha="center",
+            va="center",
             rotation=angle,
-            path_effects=[withStroke(linewidth=3, foreground="black")]
+            path_effects=[withStroke(linewidth=3, foreground="black")],
         )
+
 
 def plot_modelo_sucesso(m, evento, ax, title):
     evento = evento[evento.type_name == m.name].copy()
@@ -1039,11 +1087,15 @@ def plot_modelo_sucesso(m, evento, ax, title):
     evento["cluster"] = probs.argmax(axis=1)
 
     # Taxa de sucesso por cluster
-    cluster_success = evento.groupby("cluster")["result_name"].apply(lambda x: (x == "success").mean())
+    cluster_success = evento.groupby("cluster")["result_name"].apply(
+        lambda x: (x == "success").mean()
+    )
     cluster_counts = evento["cluster"].value_counts()
 
     # Normalizadores
-    success_norm = mcolors.Normalize(vmin=cluster_success.min(), vmax=cluster_success.max())
+    success_norm = mcolors.Normalize(
+        vmin=cluster_success.min(), vmax=cluster_success.max()
+    )
     count_norm = mcolors.Normalize(vmin=cluster_counts.min(), vmax=cluster_counts.max())
     cmap = plt.get_cmap("RdYlGn")
 
@@ -1076,14 +1128,20 @@ def plot_modelo_sucesso(m, evento, ax, title):
         y_end_stretched = y_end + stretch_factor * dy / norm
 
         # Contorno preto
-        ax.annotate("",
-            xy=(x_end_stretched, y_end_stretched), xytext=(x_start, y_start),
-            arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3))
+        ax.annotate(
+            "",
+            xy=(x_end_stretched, y_end_stretched),
+            xytext=(x_start, y_start),
+            arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3),
+        )
 
         # Seta colorida
-        ax.annotate("",
-            xy=(x_end, y_end), xytext=(x_start, y_start),
-            arrowprops=dict(arrowstyle="->", color=color, lw=lw))
+        ax.annotate(
+            "",
+            xy=(x_end, y_end),
+            xytext=(x_start, y_start),
+            arrowprops=dict(arrowstyle="->", color=color, lw=lw),
+        )
 
         # Elipse
         gauss = m.submodels[cluster_id]
@@ -1099,22 +1157,29 @@ def plot_modelo_sucesso(m, evento, ax, title):
             angle += 180
 
         ax.text(
-            text_x, text_y, f"{count}", fontsize=10,
-            color="white", ha="center", va="center",
+            text_x,
+            text_y,
+            f"{count}",
+            fontsize=10,
+            color="white",
+            ha="center",
+            va="center",
             rotation=angle,
-            path_effects=[withStroke(linewidth=3, foreground="black")]
+            path_effects=[withStroke(linewidth=3, foreground="black")],
         )
 
+
 def plot_att_comp_def_colunas(mA, mB, eA, eB):
-    
-    pitch = Pitch(pitch_type='custom', pitch_length=105, pitch_width=68, line_zorder=2)
+
+    pitch = Pitch(pitch_type="custom", pitch_length=105, pitch_width=68, line_zorder=2)
     fig, axs = pitch.draw(nrows=1, ncols=2, figsize=(18, 8))
     fig.suptitle("Comparação entre times", fontsize=18)
 
     plot_modelo_vaep(mA, eA, axs[0], title=mA.name)
     plot_modelo_sucesso(mB, eB, axs[1], title=mB.name)
-    
+
     return fig
+
 
 # ____________________________________________________________________main__________________________________________________________________________________#
 #                                                                                                                                                          #
@@ -1480,57 +1545,73 @@ def jogs_xM_time(spadl_df, jogs, teamId, rem=[]):  # falhas a se concertar
 
     eventos = atomicspadl.convert_to_atomic(spadl_df)
     time_df = eventos[eventos.team_id == teamId]
-    
+
     eventos_simples = gera_a(eventos=eventos)
-    
+
     a = gera_a(time_df)
     cat_weights = gera_cat_pesos(a)
     experiments = gera_exp(cat_weights)
-    
+
     X = a[["x", "y"]]
     loc_candidates = learn_mixture_models(X, cat_weights, experiments)
     len(loc_candidates)
     inspect_strategies(loc_candidates, 50)
-    
+
     eventVaep = vaep(spadl_df)
-    aVaep = eventos_simples.merge(eventVaep[['original_event_id', 'vaep_value']], on='original_event_id', how='left')
+    aVaep = eventos_simples.merge(
+        eventVaep[["original_event_id", "vaep_value"]],
+        on="original_event_id",
+        how="left",
+    )
     modelos = list(mix.ilp_select_models_bic(loc_candidates))
-    
+
     plot_xM_rank_jogs(modelos=modelos, a=aVaep, jogs=jogs, team_id=teamId, rem=rem)
 
 
-def get_players_ranking_for_cluster(cluster_data):
+def get_players_ranking_for_cluster(cluster_data, rank_by="zscore"):
     """
     Obtém o ranking dos jogadores para um cluster de ações.
     """
 
     # VAEP médio geral do cluster
     cluster_mean_vaep = cluster_data["vaep_value"].mean()
+    cluster_std_vaep = cluster_data["vaep_value"].std()
 
     # VAEP médio de todos os jogadores no cluster
     player_means = cluster_data.groupby("player_id")["vaep_value"].mean()
 
-    player_ranking = {}
+    player_ranking = defaultdict(dict)
     for player_id, vaep in player_means.items():
         if pd.isna(vaep) or cluster_mean_vaep == 0:
-            player_ranking[player_id] = -1
+            player_ranking[player_id] = None
         else:
-            # Calcula o percentual em relação à média do cluster
+            # Calcula o z score do vaep para o jogador
+            zscore = (vaep - cluster_mean_vaep) / cluster_std_vaep
+
+            # Calcula o valor percentual em relação à média do cluster
             perc = ((vaep / cluster_mean_vaep) - 1) * 100
-            player_ranking[player_id] = perc
+
+            player_ranking[player_id]["zscore"] = zscore
+            player_ranking[player_id]["perc"] = perc
 
     # Remove jogadores sem ações no cluster
-    player_ranking = {k: v for k, v in player_ranking.items() if v != -1}
+    player_ranking = {k: v for k, v in player_ranking.items() if v is not None}
 
     # Ordena os jogadores pelo percentual em relação à média do cluster
-    sorted_ranking = sorted(player_ranking.items(), key=lambda x: x[1], reverse=True)
+    sorted_ranking = sorted(
+        player_ranking.items(), key=lambda x: x[1][rank_by], reverse=True
+    )
     return {
-        player_id: (perc, rank + 1)
-        for rank, (player_id, perc) in enumerate(sorted_ranking)
+        player_id: {
+            "zscore": data["zscore"],
+            "perc": data["perc"],
+            "rank": idx + 1,
+        }
+        for idx, (player_id, data) in enumerate(sorted_ranking)
     }
 
 
-def get_players_ranking_for_model(model, a):
+def get_players_ranking_for_model(model, a, rank_by="zscore"):
     """
     Obtém o ranking dos jogadores para um modelo específico.
     """
@@ -1547,23 +1628,25 @@ def get_players_ranking_for_model(model, a):
     player_rankings = {}
     for cluster_id in sorted(evento["cluster"].unique()):
         cluster_data = evento[evento["cluster"] == cluster_id]
-        player_rankings[cluster_id] = get_players_ranking_for_cluster(cluster_data)
+        player_rankings[cluster_id] = get_players_ranking_for_cluster(
+            cluster_data, rank_by
+        )
 
     return player_rankings
 
 
-def get_players_ranking_for_models(models, a):
+def get_players_ranking_for_models(models, a, rank_by="zscore"):
     """
     Obtém o ranking dos jogadores para vários modelos.
     """
     all_rankings = {}
     for model in models:
-        all_rankings[model.name] = get_players_ranking_for_model(model, a)
+        all_rankings[model.name] = get_players_ranking_for_model(model, a, rank_by)
     return all_rankings
 
 
 def rank_players_overall(
-    player_rankings, modelos, wanted_actions=None, percentile=0.75
+    player_rankings, modelos, wanted_actions=None, threshold=2, compare_value="zscore"
 ):
     """
     Classifica os jogadores com base no número de vezes que superam o percentil especificado
@@ -1588,17 +1671,29 @@ def rank_players_overall(
             continue
 
         for cluster_id, rankings in rankings.items():
-            for player_id, (perc, rank) in rankings.items():
-                if perc >= percentile * 100:
-                    if player_id not in player_figures_at_top:
-                        player_figures_at_top[player_id] = {
-                            "count": 0,
-                            "clusters": defaultdict(dict),
-                        }
-                    player_figures_at_top[player_id]["count"] += 1
-                    player_figures_at_top[player_id]["clusters"][model_name][
-                        cluster_id
-                    ] = (perc, rank)
+            for player_id, data in rankings.items():
+                if compare_value in ("zscore", "perc"):
+                    if data[compare_value] >= threshold:
+                        if player_id not in player_figures_at_top:
+                            player_figures_at_top[player_id] = {
+                                "count": 0,
+                                "clusters": defaultdict(dict),
+                            }
+                        player_figures_at_top[player_id]["count"] += 1
+                        player_figures_at_top[player_id]["clusters"][model_name][
+                            cluster_id
+                        ] = data
+                elif compare_value == "rank":
+                    if data[compare_value] <= threshold:
+                        if player_id not in player_figures_at_top:
+                            player_figures_at_top[player_id] = {
+                                "count": 0,
+                                "clusters": defaultdict(dict),
+                            }
+                        player_figures_at_top[player_id]["count"] += 1
+                        player_figures_at_top[player_id]["clusters"][model_name][
+                            cluster_id
+                        ] = data
 
     # Filtra jogadores que estão no topo de pelo menos um cluster
     top_players = {
@@ -1610,6 +1705,9 @@ def rank_players_overall(
         for player_id, data in player_figures_at_top.items()
         if data["count"] > 0
     }
+
+    if top_players.get(0) is not None:
+        del top_players[0]
 
     # Ordena os jogadores pelo número de vezes que aparecem no topo
     sorted_top_players = sorted(
@@ -1678,20 +1776,25 @@ def plot_player_rankings(
     player_ranking,
     modelos,
     num_players=10,
-    wanted_actions=None, # Este é o argumento que vamos usar
+    wanted_actions=None,
+    show_score="zscore",
 ):
     # Dicionário para armazenar as figuras geradas (uma por ação selecionada)
     # Assim, o Streamlit pode exibir múltiplas figuras.
     figures = {}
 
+    def _get_cluster_text(score, rank):
+        if show_score == "zscore":
+            return f"{rank}\n({score:.2f})"
+        elif show_score == "perc":
+            return f"{rank}\n({score:.1f}%)"
+
     for model in modelos:
-        # Pular se nenhum tipo de ação foi selecionado OU se o modelo atual não está na seleção
         if wanted_actions is not None and model.name not in wanted_actions:
             continue
-        # Pular se o modelo não tiver dados de cluster para este jogador
-        if not isinstance(player_ranking.get("clusters"), dict) or model.name not in player_ranking["clusters"]:
-            continue
 
+        if model.name not in player_ranking["clusters"]:
+            continue
         fig, ax = plt.subplots(figsize=(10, 6))
         pitch = Pitch(
             pitch_type="custom", pitch_length=105, pitch_width=68, line_zorder=2
@@ -1707,14 +1810,15 @@ def plot_player_rankings(
             mean = gauss.mean
             cov = gauss.cov
             if cluster_id in player_ranking["clusters"][model.name]:
-                (perc, rank) = player_ranking["clusters"][model.name][cluster_id]
+                score = player_ranking["clusters"][model.name][cluster_id][show_score]
+                rank = player_ranking["clusters"][model.name][cluster_id]["rank"]
                 rank_norm = mcolors.Normalize(vmin=1, vmax=num_players)
                 cmap = plt.get_cmap("RdYlGn_r")
                 color = cmap(rank_norm(rank))
                 ax.text(
                     mean[0],
                     mean[1],
-                    f"{rank}\n({perc:.1f}%)",
+                    _get_cluster_text(score, rank),
                     color="white",
                     fontsize=11,
                     ha="center",
@@ -1733,21 +1837,25 @@ def plot_player_rankings(
     return figures
 
 
-def create_player_ranking_df(overall_best_players, players_df): # Renomeei 'players' para 'players_df' para clareza
+def create_player_ranking_df(
+    overall_best_players, players_df
+):  # Renomeei 'players' para 'players_df' para clareza
     player_ranking = []
 
     for obp in overall_best_players:
         player_id = obp["player_id"]
         player_info = players_df.loc[players_df["player_id"] == player_id]
         player_name = (
-            player_info["jogNome"].values[0] if not player_info.empty else "Unknown Player"
+            player_info["jogNome"].values[0]
+            if not player_info.empty
+            else "Unknown Player"
         )
 
         player_ranking.append(
             {
                 "player_id": player_id,
                 "rank": obp["rank"],
-                "jogNome": player_name, # <-- CORREÇÃO AQUI! Mudei de "player_name" para "jogNome"
+                "jogNome": player_name,  # <-- CORREÇÃO AQUI! Mudei de "player_name" para "jogNome"
                 "clusters_count": obp["count"],
                 "clusters_percentage": obp["percentage"],
                 "clusters": obp["clusters"],
@@ -1758,7 +1866,6 @@ def create_player_ranking_df(overall_best_players, players_df): # Renomeei 'play
     player_ranking_df = pd.DataFrame(player_ranking)
 
     return player_ranking_df
-
 
 
 def salvar_modelos(modelos, caminho_arquivo):
