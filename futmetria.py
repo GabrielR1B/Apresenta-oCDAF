@@ -875,7 +875,7 @@ def plot_xM_rank(modelos, a, jog_id, rem):
         plt.show()
 
 
-def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
+def plot_xM_rank_jogs(modelos, a, jogs, team_id): # plot cluster + jogador com melhor xM
     for m in modelos:
         evento = a[a.type_name == m.name].copy()
         evento["x_end"] = evento["x"] + evento["dx"]
@@ -888,14 +888,10 @@ def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
 
         # Contagem de ações por cluster
         cluster_counts = evento["cluster"].value_counts()
-        count_norm = mcolors.Normalize(
-            vmin=cluster_counts.min(), vmax=cluster_counts.max()
-        )
+        count_norm = mcolors.Normalize(vmin=cluster_counts.min(), vmax=cluster_counts.max())
 
         # Campo
-        pitch = Pitch(
-            pitch_type="custom", pitch_length=105, pitch_width=68, line_zorder=2
-        )
+        pitch = Pitch(pitch_type='custom', pitch_length=105, pitch_width=68, line_zorder=2)
         fig, ax = pitch.draw(figsize=(12, 8))
         ax.set_title(f"Melhor Jogador por Cluster - {m.name}", fontsize=16)
 
@@ -922,13 +918,14 @@ def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
             else:
                 perc_por_cluster[cluster_id] = (-1, 0)
 
+
         # Normalizador de cores baseado na melhor performance relativa
         if max_percs:
             perc_max = max(max_percs)
         else:
             perc_max = 1  # evita divisão por zero
         perc_norm = mcolors.Normalize(vmin=0, vmax=perc_max)
-        cmap = cm.get_cmap("RdYlGn")
+        cmap = plt.get_cmap("RdYlGn")
 
         # Segundo loop para plotagem
         for cluster_id, (best_id, best_perc) in perc_por_cluster.items():
@@ -957,20 +954,14 @@ def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
             y_end_stretched = y_end + stretch_factor * dy / norm_vec
 
             # Contorno preto
-            ax.annotate(
-                "",
-                xy=(x_end_stretched, y_end_stretched),
-                xytext=(x_start, y_start),
-                arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3),
-            )
+            ax.annotate("",
+                        xy=(x_end_stretched, y_end_stretched), xytext=(x_start, y_start),
+                        arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3))
 
             # Seta colorida
-            ax.annotate(
-                "",
-                xy=(x_end, y_end),
-                xytext=(x_start, y_start),
-                arrowprops=dict(arrowstyle="->", color=color, lw=lw),
-            )
+            ax.annotate("",
+                        xy=(x_end, y_end), xytext=(x_start, y_start),
+                        arrowprops=dict(arrowstyle="->", color=color, lw=lw))
 
             # Elipse
             gauss = m.submodels[cluster_id]
@@ -978,18 +969,12 @@ def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
 
             # Nome do jogador
             ax.text(
-                gauss.mean[0],
-                gauss.mean[1],
-                nome_jogador,
-                color="white",
-                fontsize=10,
-                ha="center",
-                va="center",
-                path_effects=[withStroke(linewidth=3, foreground="black")],
+                gauss.mean[0], gauss.mean[1], nome_jogador,
+                color="white", fontsize=10, ha="center", va="center",
+                path_effects=[withStroke(linewidth=3, foreground="black")]
             )
 
         plt.show()
-
 
 def plot_modelo_vaep(m, evento, ax, title):
     evento = evento[evento.type_name == m.name].copy()
