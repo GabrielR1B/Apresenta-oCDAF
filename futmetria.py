@@ -251,7 +251,7 @@ def plot(modelos, a):
         cbar = fig.colorbar(sm, ax=ax, orientation='horizontal', fraction=0.03, pad=0.04)
         
         # Definir o rótulo da barra de cores
-        cbar.set_label('Qualidade da Ação dado pela métrica VAEP\nVerde = Positivo / Vermelho = Negativo', 
+        cbar.set_label('Qualidade da Ação dado pela métrica VAEP\nVermelho = Baixo | Verde = Alto', 
                    fontsize=12, labelpad=15)
         
         return fig

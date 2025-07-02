@@ -80,7 +80,8 @@ def get_team_vaep(team_id):
         return aVaep
 
     # --- PASSO 2: SE O ARQUIVO NÃO EXISTE, PROCESSAR DO ZERO ---
-    st.warning(f"Dados para o time {team_id} não encontrados. Iniciando processamento completo (isso pode levar um tempo)...")
+    placeholder = st.empty()
+    placeholder.warning(f"Dados para o time {team_id} não encontrados. Iniciando processamento completo. Por favor, aguarde.")
 
     # --- Carregamento de Dados ---
     events_path = DATA_DIR / EVENTS_FILE
@@ -94,45 +95,42 @@ def get_team_vaep(team_id):
         st.error(f"Arquivo de partidas não encontrado: '{MATCHES_FILE}' em '{DATA_DIR}'.")
         st.stop()
 
-    with st.spinner("Carregando e transformando dados SPADL..."):
-        events = futmetria.load_events(events_path)
-        matches = futmetria.load_matches(matches_path)
-        matches_id = matches[matches['teamId'] == team_id]['matchId']
-        
-        if spadl_csv_path.is_file():
-            spadl_df = pd.read_csv(spadl_csv_path)
-        else:
-            spadl_df = futmetria.spadl_transform(events, matches)
-            spadl_df.to_csv(spadl_csv_path, index=False)
+    events = futmetria.load_events(events_path)
+    matches = futmetria.load_matches(matches_path)
+    matches_id = matches[matches['teamId'] == team_id]['matchId']
     
-    with st.spinner(f"Processando VAEP para o time {team_id}..."):
-        # --- Processamento VAEP ---
-        spadl_df = spadl_df[spadl_df.game_id.isin(matches_id)].reset_index(drop=True)
-        
-        if spadl_df.empty:
-            st.error(f"Não foram encontradas ações SPADL para o time {team_id}.")
-            return pd.DataFrame() 
+    if spadl_csv_path.is_file():
+        spadl_df = pd.read_csv(spadl_csv_path)
+    else:
+        spadl_df = futmetria.spadl_transform(events, matches)
+        spadl_df.to_csv(spadl_csv_path, index=False)
+    
+    # --- Processamento VAEP ---
+    spadl_df = spadl_df[spadl_df.game_id.isin(matches_id)].reset_index(drop=True)
+    
+    if spadl_df.empty:
+        st.error(f"Não foram encontradas ações SPADL para o time {team_id}.")
+        return pd.DataFrame() 
 
-        atomic_spadl_df = atomicspadl.convert_to_atomic(spadl_df)
-        atomic_spadl_df = atomic_spadl_df[atomic_spadl_df['team_id'] == team_id]
-        actions = futmetria.gera_a(atomic_spadl_df)
-        
-        eventVaep = vaep(spadl_df)
-        aVaep = actions.merge(
-            eventVaep[["original_event_id", "vaep_value"]],
-            on="original_event_id",
-            how="left",
-        )
+    atomic_spadl_df = atomicspadl.convert_to_atomic(spadl_df)
+    atomic_spadl_df = atomic_spadl_df[atomic_spadl_df['team_id'] == team_id]
+    actions = futmetria.gera_a(atomic_spadl_df)
+    
+    eventVaep = vaep(spadl_df)
+    aVaep = actions.merge(
+        eventVaep[["original_event_id", "vaep_value"]],
+        on="original_event_id",
+        how="left",
+    )
 
     # --- PASSO 3: SALVAR OS NOVOS DADOS E RETORNAR ---
     try:
         aVaep.to_parquet(output_path, index=False)
-        st.success(f"Processamento concluído! Dados VAEP para o time {team_id} foram salvos em cache.")
+        placeholder.success(f"Processamento concluído!")
     except Exception as e:
-        st.error(f"Ocorreu um erro ao salvar o arquivo Parquet: {e}")
+        placeholder.error(f"Ocorreu um erro ao salvar o arquivo Parquet: {e}")
 
     return aVaep
-
 
 @st.cache_data(show_spinner="Carregando dados de jogadores...")
 def load_players_data():
@@ -368,21 +366,20 @@ elif st.session_state.page == 'team_analysis':
         # Botão para acionar a análise
         if st.button("Gerar Análise", type="primary"):
             if selected_team_name and selected_action_name:
-                with st.spinner("Processando e gerando o gráfico..."):
                     
-                    # Lógica para obter dados e modelo
-                    selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
-                    vaep_selected_team = get_team_vaep(selected_team_id)
-                    model_selected_action_list = [modelo for modelo in modelos_global if modelo.name == selected_action_name]
+                # Lógica para obter dados e modelo
+                selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
+                vaep_selected_team = get_team_vaep(selected_team_id)
+                model_selected_action_list = [modelo for modelo in modelos_global if modelo.name == selected_action_name]
+                
+                if model_selected_action_list:
+                    model_selected_action = model_selected_action_list[0]
                     
-                    if model_selected_action_list:
-                        model_selected_action = model_selected_action_list[0]
-                        
-                        # Chamar a função de plotagem
-                        plotagem = futmetria.plot(modelos=[model_selected_action], a=vaep_selected_team)
-                        st.pyplot(plotagem)
-                    else:
-                        st.error(f"Não foi possível encontrar o modelo para a ação '{selected_action_name}'.")
+                    # Chamar a função de plotagem
+                    plotagem = futmetria.plot(modelos=[model_selected_action], a=vaep_selected_team)
+                    st.pyplot(plotagem)
+                else:
+                    st.error(f"Não foi possível encontrar o modelo para a ação '{selected_action_name}'.")
 
     ### --- OPÇÃO 3: Análise comparativa entre dois clubes ---
     elif analysis_type == "Análise comparativa entre dois clubes":
