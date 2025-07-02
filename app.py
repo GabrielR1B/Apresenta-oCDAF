@@ -1,13 +1,15 @@
 import warnings
-import pandas as pd
-import numpy as np
-import streamlit as st
 from pathlib import Path
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import socceraction.atomic.spadl as atomicspadl
+import streamlit as st
 
 import futmetria
 from vaep import vaep
+
 st.set_option('deprecation.showPyplotGlobalUse', False)
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -131,8 +133,8 @@ def load_ml_models():
     return futmetria.carregar_modelos(model_path)
 
 @st.cache_data(show_spinner="Gerando rankings...")
-def calculate_player_rankings(_modelos, _aVaep, _players_df):
-    rankings = futmetria.get_players_ranking_for_models(_modelos, _aVaep)
+def calculate_player_rankings(_modelos, _aVaep, _rank_by="zscore"):
+    rankings = futmetria.get_players_ranking_for_models(_modelos, _aVaep, rank_by=_rank_by)
     return rankings
 
 # --- CARREGAMENTO GLOBAL DE DADOS E MODELOS ---
@@ -145,7 +147,7 @@ teams_df = load_teams_data()
 if modelos_global is None:
     st.error("Modelos essenciais não puderam ser carregados. Verifique os arquivos do modelo.")
     st.stop()
-rankings_global = calculate_player_rankings(modelos_global, aVaep_global, players_df_global)
+rankings_global = calculate_player_rankings(modelos_global, aVaep_global)
 # --- FIM DO CARREGAMENTO GLOBAL ---
 
 
@@ -361,29 +363,82 @@ elif st.session_state.page == 'team_analysis':
     st.caption("Desenvolvido para análise de futebol com dados Wyscout, com clusterização soccermix e métricas VAEP.")
 
 ### --- PLAYER ANALYSIS --- ###
-elif st.session_state.page == 'player_analysis':
+elif st.session_state.page == "player_analysis":
     st.title("⚽ Análise de Ações e Ranking de Jogadores")
+    st.markdown("---")
+
+    analysis_type = st.radio(
+        label="Escolha por qual métrica deseja ordenar os jogadores:",
+        options=[
+            "Z-Score em relação ao VAEP do cluster",
+            "Percentual em relação ao VAEP médio do cluster",
+        ],
+        horizontal=True,  # Deixa os botões na horizontal
+    )
+    st.markdown("---")
+
+    rank_by = "zscore" if "Z-Score" in analysis_type else "perc"
+
+    rankings = calculate_player_rankings(
+        modelos_global,
+        aVaep_global,
+        rank_by,
+    )
+
+    analysis_type = st.radio(
+        label="Escolha por qual métrica filtrar os jogadores:",
+        options=[
+            "Z-Score em relação ao VAEP do cluster",
+            "Percentual em relação ao VAEP médio do cluster",
+            "Número de vezes que o jogador apareceu no topo do ranking",
+        ],
+        horizontal=True,  # Deixa os botões na horizontal
+    )
+
+    compare_value = (
+        "zscore"
+        if "Z-Score" in analysis_type
+        else "perc" if "Percentual" in analysis_type else "rank"
+    )
+
+    if compare_value == "zscore":
+        min_value = -5.0
+        max_value = 5.0
+        initial_value = 0.95
+        step = 0.01
+    elif compare_value == "perc":
+        min_value = -2e3
+        max_value = 2e3
+        initial_value = 200.0
+        step = 1.0
+    else:
+        min_value = 0
+        max_value = 100
+        initial_value = 10
+        step = 5
+
+    threshold = st.slider(
+        "Selecione o valor para filtrar:",
+        min_value=min_value,
+        max_value=max_value,
+        value=initial_value,
+        step=step,
+        help="Define o limiar para considerar os 'melhores' jogadores.",
+    )
+
     st.markdown("---")
 
     st.header("📊 Top Jogadores por VAEP")
 
-    percentile_threshold = st.sidebar.slider(
-        "Selecione o Percentil para Filtrar:",
-        min_value=0.01,
-        max_value=0.99,
-        value=0.95,
-        step=0.01,
-        help="Define o limiar de VAEP para considerar os 'melhores' jogadores."
-    )
-
     overall_best_players_display = futmetria.rank_players_overall(
-        rankings_global, # Usando a variável global
-        modelos_global, # Usando a variável global
-        percentile=percentile_threshold,
+        rankings_global,  # Usando a variável global
+        modelos_global,  # Usando a variável global
+        threshold=threshold,
+        compare_value=compare_value,
     )
     player_ranking_df = futmetria.create_player_ranking_df(
         overall_best_players_display,
-        players_df_global, # Usando a variável global
+        players_df_global,  # Usando a variável global
     )
 
     if not player_ranking_df.empty:
@@ -401,7 +456,7 @@ elif st.session_state.page == 'player_analysis':
 
         st.dataframe(display_df, use_container_width=True)
 
-        st.markdown(f"**Total de jogadores no ranking (acima do percentil {percentile_threshold*100:.0f}%):** {len(player_ranking_df)}")
+        st.markdown(f"**Total de jogadores no ranking:** {len(player_ranking_df)}")
 
         st.markdown("---")
 
@@ -448,6 +503,7 @@ elif st.session_state.page == 'player_analysis':
                         modelos_global,
                         num_players=len(player_ranking_df),
                         wanted_actions=selected_action_types,
+                        show_score=rank_by,
                     )
 
                     if player_figures:
