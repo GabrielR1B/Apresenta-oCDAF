@@ -25,6 +25,40 @@ TEAMS_FILE = "teams.json"
 SPADL_CSV_FILE = "wyscount_england_events_spadl.csv"
 MODELS_PKL_FILE = "modelos.pkl"
 
+# --- MAPPING FOR ACTION NAMES ---
+ACTION_NAME_TRANSLATIONS = {
+    "pass": "Passe",
+    "receival": "Recepção",
+    "dribble": "Drible",
+    "shot": "Chute",
+    "take_out": "Desarme",
+    "clearance": "Corte",
+    "foul": "Falta",
+    "cross": "Cruzamento",
+    "interception": "Interceptação",
+    "freekick": "Falta Cobrada", # Corrected from "Bola Parada (Falta)" for conciseness
+    "corner": "Escanteio",
+    "throw_in": "Arremesso Lateral",
+    "goalkeeper_action": "Ação do Goleiro",
+    "ball_out": "Bola Fora",
+    # Missing terms from the screenshot:
+    "bad_touch": "Domínio Ruim",
+    "goal": "Gol",
+    "goalkick": "Tiro de Meta",
+    "keeper_catch": "Defesa do Goleiro",
+    "offside": "Impedimento",
+    "out": "Fora", # This might be redundant with "Bola Fora" depending on context
+    "owngoal": "Gol Contra",
+    "red_card": "Cartão Vermelho",
+    "shot_penalty": "Pênalti",
+    "tackle": "Carrinho",
+    "take_on": "Drible Tentado", # or "Tentativa de Drible"
+    "yellow_card": "Cartão Amarelo",
+}
+
+# --- Reverse mapping for internal use ---
+REVERSE_ACTION_TRANSLATIONS = {v: k for k, v in ACTION_NAME_TRANSLATIONS.items()}
+
 @st.cache_data(show_spinner="Carregando e processando dados de eventos...")
 def load_and_process_event_data():
     events_path = DATA_DIR / EVENTS_FILE
@@ -208,7 +242,7 @@ if st.session_state.page == 'home':
     st.header("Estratégias de Times e Detecção de Padrões de Jogo")
     st.markdown("""
     Para entender as estratégias e a eficácia de times e jogadores de futebol, é preciso ir além das estatísticas tradicionais de gols e assistências. Uma ação aparentemente simples, como um passe no meio-campo, pode ser o ponto de partida para um gol, enquanto um cruzamento aparentemente perigoso pode ser uma jogada de baixa probabilidade. 
-    Nossa metodologia foi desenhada para capturar essa complexidade, combinando duas abordagens poderosas: a detecção de padrões de jogo (clusters) com o SoccerMix e a valorização de cada ação individual com o VAEP.    """)
+    Nossa metodologia foi desenhada para capturar essa complexidade, combinando duas abordagens poderosas: a detecção de padrões de jogo (clusters) com o SoccerMix e a valorização de cada ação individual com o VAEP.     """)
     st.markdown("---")
 
     # --- PILARES DA METODOLOGIA (Em colunas para comparação) ---
@@ -291,8 +325,8 @@ elif st.session_state.page == 'team_analysis':
     ### --- OPÇÃO 1: Análise de clusterização com VAEP global ---
     if analysis_type == "Análise de clusterização com VAEP global":
         
-        st.subheader("Análise de Ações e Clusters por Clube")
-        st.write("Selecione um clube e um tipo de ação para visualizar os padrões de jogo e sua eficácia (VAEP).")
+        st.subheader("Análise de Ações e Clusters por Clube (Dados Globais da Liga)")
+        st.write("Selecione um clube e um ou mais tipos de ação para visualizar os padrões de jogo e sua eficácia (VAEP) considerando todos os dados da liga.")
 
         # Usar colunas para organizar os dropdowns
         col1, col2 = st.columns(2)
@@ -308,36 +342,53 @@ elif st.session_state.page == 'team_analysis':
             )
 
         with col2:
-            # Dropdown de Ações (Clusters)
+            # Multiselect de Ações (Clusters)
             all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
-            all_model_names.sort()
-            selected_action_name = st.selectbox(
-                label="Selecione uma ação:",
-                options=all_model_names
+            # Translate the model names for display
+            translated_model_names = [ACTION_NAME_TRANSLATIONS.get(name, name) for name in all_model_names]
+            translated_model_names.sort()
+            
+            # Get default selection in translated form
+            default_translated_selection = [ACTION_NAME_TRANSLATIONS["pass"]] if "pass" in all_model_names else []
+
+            selected_translated_action_names = st.multiselect(
+                label="Selecione uma ou mais ações:",
+                options=translated_model_names,
+                default=default_translated_selection
             )
+            # Convert back to original names for internal logic
+            selected_action_names = [REVERSE_ACTION_TRANSLATIONS.get(name, name) for name in selected_translated_action_names]
         
         # Botão para acionar a análise
-        if st.button("Gerar Análise", type="primary"):
-            if selected_team_name and selected_action_name:
-                with st.spinner("Processando e gerando o gráfico..."):
+        if st.button("Gerar Análise", type="primary", key="generate_analysis_global"):
+            if selected_team_name and selected_action_names:
+                with st.spinner("Processando e gerando os gráficos..."):
                     
-                    # Lógica para obter dados e modelo
                     selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
-                    model_selected_action_list = [modelo for modelo in modelos_global if modelo.name == selected_action_name]
                     
-                    if model_selected_action_list:
-                        model_selected_action = model_selected_action_list[0]
-                        
-                        # Chamar a função de plotagem
-                        plotagem = futmetria.plot(modelos=[model_selected_action], a=aVaep_global)
-                        st.pyplot(plotagem)
+                    # Filter models based on selected action names
+                    models_to_plot = [model for model in modelos_global if model.name in selected_action_names]
+                    
+                    if models_to_plot:
+                        # Call plot function for each selected model
+                        for model_selected_action in models_to_plot:
+                            st.write(f"#### Gráfico para: {ACTION_NAME_TRANSLATIONS.get(model_selected_action.name, model_selected_action.name)} ({selected_team_name})")
+                            plotagem = futmetria.plot(
+                                modelos=[model_selected_action],
+                                a=aVaep_global[aVaep_global['team_id'] == selected_team_id] # Filter global data for the selected team
+                            )
+                            st.pyplot(plotagem)
+                            plt.close(plotagem) # Close the plot to prevent memory issues
                     else:
-                        st.error(f"Não foi possível encontrar o modelo para a ação '{selected_action_name}'.")
+                        st.error("Não foi possível encontrar modelos para os tipos de ação selecionados.")
+            else:
+                st.warning("Por favor, selecione um clube e pelo menos um tipo de ação para gerar a análise.")
+
 
     #### --- OPÇÃO 2: Análise de clusterização com VAEP por time ---
     elif analysis_type == "Análise de clusterização com VAEP por time":
-        st.subheader("Análise de Ações e Clusters por Clube")
-        st.write("Selecione um clube e um tipo de ação para visualizar os padrões de jogo e sua eficácia (VAEP).")
+        st.subheader("Análise de Ações e Clusters por Clube (Dados Específicos do Time)")
+        st.write("Selecione um clube e um ou mais tipos de ação para visualizar os padrões de jogo e sua eficácia (VAEP) com base *apenas* nas ações daquele time.")
 
         # Usar colunas para organizar os dropdowns
         col1, col2 = st.columns(2)
@@ -353,106 +404,130 @@ elif st.session_state.page == 'team_analysis':
             )
 
         with col2:
-            # Dropdown de Ações (Clusters)
+            # Multiselect de Ações (Clusters)
             all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
-            all_model_names.sort()
-            selected_action_name = st.selectbox(
-                label="Selecione uma ação:",
-                options=all_model_names
+            # Translate the model names for display
+            translated_model_names = [ACTION_NAME_TRANSLATIONS.get(name, name) for name in all_model_names]
+            translated_model_names.sort()
+            
+            # Get default selection in translated form
+            default_translated_selection = [ACTION_NAME_TRANSLATIONS["pass"]] if "pass" in all_model_names else []
+
+            selected_translated_action_names = st.multiselect(
+                label="Selecione uma ou mais ações:",
+                options=translated_model_names,
+                default=default_translated_selection
             )
+            # Convert back to original names for internal logic
+            selected_action_names = [REVERSE_ACTION_TRANSLATIONS.get(name, name) for name in selected_translated_action_names]
         
         # Botão para acionar a análise
-        if st.button("Gerar Análise", type="primary"):
-            if selected_team_name and selected_action_name:
-                    
-                # Lógica para obter dados e modelo
-                selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
-                vaep_selected_team = get_team_vaep(selected_team_id)
-                model_selected_action_list = [modelo for modelo in modelos_global if modelo.name == selected_action_name]
-                
-                if model_selected_action_list:
-                    model_selected_action = model_selected_action_list[0]
-                    
-                    # Chamar a função de plotagem
-                    plotagem = futmetria.plot(modelos=[model_selected_action], a=vaep_selected_team)
-                    st.pyplot(plotagem)
-                else:
-                    st.error(f"Não foi possível encontrar o modelo para a ação '{selected_action_name}'.")
+        if st.button("Gerar Análise", type="primary", key="generate_analysis_team"):
+            if selected_team_name and selected_action_names:
+                with st.spinner(f"Processando e gerando os gráficos para {selected_team_name}..."):
+                    # Lógica para obter dados e modelo
+                    selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
+                    vaep_selected_team = get_team_vaep(selected_team_id)
+
+                    if vaep_selected_team.empty:
+                        st.error(f"Não há dados VAEP disponíveis para o time {selected_team_name} ou ocorreu um erro no processamento.")
+                    else:
+                        models_to_plot = [model for model in modelos_global if model.name in selected_action_names]
+                        
+                        if models_to_plot:
+                            for model_selected_action in models_to_plot:
+                                st.write(f"#### Gráfico para: {ACTION_NAME_TRANSLATIONS.get(model_selected_action.name, model_selected_action.name)} ({selected_team_name})")
+                                plotagem = futmetria.plot(modelos=[model_selected_action], a=vaep_selected_team)
+                                st.pyplot(plotagem)
+                                plt.close(plotagem) # Close the plot to prevent memory issues
+                        else:
+                            st.error("Não foi possível encontrar modelos para os tipos de ação selecionados.")
+            else:
+                st.warning("Por favor, selecione um clube e pelo menos um tipo de ação para gerar a análise.")
 
     ### --- OPÇÃO 3: Análise comparativa entre dois clubes ---
     elif analysis_type == "Análise comparativa entre dois clubes":
-        st.subheader("Análise entre os Clusters de Dois Clubes")
-        st.write("Selecione dois clubes e a ação que deseja compará-los")
-
-        # Usar colunas para organizar os dropdowns
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            # Dropdown Clube1
-            unique_team_ids_in_data = aVaep_global['team_id'].unique()
-            relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
-            team_names_for_dropdown1 = relevant_teams['name'].sort_values().tolist()
-            selected_team_name1 = st.selectbox(
-                label="Selecione clube 1:",
-                options=team_names_for_dropdown1
-            )
-
-        with col2:
-            # Dropdown de Ações time 1 (Clusters)
-            all_model_names1 = [model.name for model in modelos_global if hasattr(model, 'name')]
-            all_model_names1.sort()
-            selected_action_name1 = st.selectbox(
-                label="Selecione uma ação para clube 1:",
-                options=all_model_names1
-            )
-
-        with col3:
-            # Dropdown Clube2
-            unique_team_ids_in_data = aVaep_global['team_id'].unique()
-            relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
-            team_names_for_dropdown2 = relevant_teams['name'].sort_values().tolist()
-            selected_team_name2 = st.selectbox(
-                label="Selecione clube 2:",
-                options=team_names_for_dropdown2
-            )
-
-        with col4:
-            # Dropdown de Ações (Clusters)
-            all_model_names2 = [model.name for model in modelos_global if hasattr(model, 'name')]
-            all_model_names2.sort()
-            selected_action_name2 = st.selectbox(
-                label="Selecione uma ação para clube 2:",
-                options=all_model_names2
-            )
+        st.subheader("Análise Comparativa entre Clubes")
+        st.info("Selecione 2 clubes e uma ação para cada clube para fazer uma análise vertical")
+    
+        col1,col2 = st.columns(2)
         
-        # Botão para acionar a análise
-        if st.button("Gerar Análise", type="primary"):
-            if selected_team_name1 and selected_team_name2 and selected_action_name1 and selected_action_name2:
+        with col1:
+            
+            unique_team_ids_in_data = aVaep_global['team_id'].unique()
+            relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
+            team_names_for_dropdown = relevant_teams['name'].sort_values().tolist()
+            selected_team_name_A = st.selectbox(
+                label="Selecione um clube A:",
+                options=team_names_for_dropdown
+            )
+            
+            all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
+            all_model_names.sort()
+            selected_action_name_A = st.selectbox(
+                label="Selecione uma ação A:",
+                options=all_model_names,
+            )
+            
+        with col2:
+            
+            unique_team_ids_in_data = aVaep_global['team_id'].unique()
+            relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
+            team_names_for_dropdown = relevant_teams['name'].sort_values().tolist()
+            selected_team_name_B = st.selectbox(
+                label="Selecione um clube B:",
+                options=team_names_for_dropdown
+            )
+            
+            all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
+            all_model_names.sort()
+            selected_action_name_B = st.selectbox(
+                label="Selecione uma ação B:",
+                options=all_model_names,
+            )
+            
+        if st.button("Gerar Análise", type="primary", key="compare_teams_analysis_button"):
+            if selected_team_name_A and selected_action_name_A and selected_action_name_B and selected_team_name_B:
+                with st.spinner("Processando e gerando os gráficos..."):
                     
-                # Lógica para obter dados e modelo
-                selected_team_id1 = relevant_teams[relevant_teams['name'] == selected_team_name1]['wyId'].iloc[0]
-                selected_team_id2 = relevant_teams[relevant_teams['name'] == selected_team_name2]['wyId'].iloc[0]
+                    selected_team_id_A = relevant_teams[relevant_teams['name'] == selected_team_name_A]['wyId'].iloc[0]
+                    for model in modelos_global:
+                        if model.name == selected_action_name_A:
+                            model_to_plot_A = model
+                    
+                    selected_team_id_B = relevant_teams[relevant_teams['name'] == selected_team_name_B]['wyId'].iloc[0]
+                    for model in modelos_global:
+                        if model.name == selected_action_name_B:
+                            model_to_plot_B = model
+                    
+                    spadl_df = pd.read_csv(DATA_DIR / SPADL_CSV_FILE)
+                    timedf = spadl_df[spadl_df.team_id == selected_team_id_B]
+                    
+                    atomic_spadl_df = atomicspadl.convert_to_atomic(timedf)
+                    a_B = futmetria.gera_a(atomic_spadl_df)
+                    a_B_suc = a_B.merge(spadl_df[["original_event_id", "result_name"]], on="original_event_id", how="left")
+                    
+                    vaepTime = aVaep_global[aVaep_global['team_id'] == selected_team_id_A]
+                    
+                    if model_to_plot_A and model_to_plot_B:
+                        st.write(f"#### Gráfico de comparação entre {model_to_plot_A.name} ({selected_team_name_A}) x {model_to_plot_B.name} ({selected_team_name_B})")
+                        
+                        plotagem = futmetria.plot_att_comp_def_colunas(mA=model_to_plot_A, mB=model_to_plot_B, eA=vaepTime, eB=a_B_suc)
+                        
+                        st.pyplot(plotagem)
+                        plt.close(plotagem) # Close the plot to prevent memory issues
 
-                vaep_selected_team1 = aVaep_global[aVaep_global.team_id == selected_team_id1].reset_index(drop=True)
-                vaep_selected_team2 = aVaep_global[aVaep_global.team_id == selected_team_id2].reset_index(drop=True)
-                
-                model_selected_action_list1 = [modelo for modelo in modelos_global if modelo.name == selected_action_name1]
-                model_selected_action_list2 = [modelo for modelo in modelos_global if modelo.name == selected_action_name2]
-                
-                if model_selected_action_list1 and model_selected_action_list2:
-                    model_selected_action1 = model_selected_action_list1[0]
-                    model_selected_action2 = model_selected_action_list2[0]
-
-                    # Chamar a função de plotagem
-                    plotagem = futmetria.plot_comp_2times(model_selected_action1, model_selected_action2, vaep_selected_team1, vaep_selected_team2)
-                    st.pyplot(plotagem)
-                else:
-                    st.error(f"Não foi possível encontrar o modelo para a ação para os clubes selecionados'.")
- 
+                    else:
+                        st.error("Não foi possível encontrar modelos para os tipos de ação selecionados.")
+            else:
+                st.warning("Por favor, selecione um clube e pelo menos um tipo de ação para gerar a análise.")
+            
+        
+    
     ### --- OPÇÃO 4: Análise Z-Rank - Time x Liga
     elif analysis_type == "Análise Z-Rank - Time x Liga":
         st.subheader("Análise Comparativa Z-Rank - Time x Liga")
-        st.write("Selecione um clube e um tipo de ação para visualizar o quão bom ele é comparado com os demais times da liga")
+        st.write("Selecione um clube e um ou mais tipos de ação para visualizar o quão bom ele é comparado com os demais times da liga.")
 
         # Usar colunas para organizar os dropdowns
         col1, col2 = st.columns(2)
@@ -468,31 +543,41 @@ elif st.session_state.page == 'team_analysis':
             )
 
         with col2:
-            # Dropdown de Ações (Clusters)
+            # Multiselect de Ações (Clusters)
             all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
-            all_model_names.sort()
-            selected_action_name = st.selectbox(
-                label="Selecione uma ação:",
-                options=all_model_names
+            # Translate the model names for display
+            translated_model_names = [ACTION_NAME_TRANSLATIONS.get(name, name) for name in all_model_names]
+            translated_model_names.sort()
+
+            # Get default selection in translated form
+            default_translated_selection = [ACTION_NAME_TRANSLATIONS["pass"]] if "pass" in all_model_names else []
+
+            selected_translated_action_names = st.multiselect(
+                label="Selecione uma ou mais ações:",
+                options=translated_model_names,
+                default=default_translated_selection
             )
+            # Convert back to original names for internal logic
+            selected_action_names = [REVERSE_ACTION_TRANSLATIONS.get(name, name) for name in selected_translated_action_names]
         
         # Botão para acionar a análise
-        if st.button("Gerar Análise", type="primary"):
-            if selected_team_name and selected_action_name:
-                with st.spinner("Processando e gerando o gráfico..."):
+        if st.button("Gerar Análise", type="primary", key="z_rank_analysis_button"):
+            if selected_team_name and selected_action_names:
+                with st.spinner("Processando e gerando os gráficos..."):
                     
-                    # Lógica para obter dados e modelo
                     selected_team_id = relevant_teams[relevant_teams['name'] == selected_team_name]['wyId'].iloc[0]
-                    model_selected_action_list = [modelo for modelo in modelos_global if modelo.name == selected_action_name]
+                    models_to_plot = [model for model in modelos_global if model.name in selected_action_names]
                     
-                    if model_selected_action_list:
-                        model_selected_action = model_selected_action_list[0]
-                        
-                        # Chamar a função de plotagem
-                        plotagem = futmetria.plot_z_rank(modelos=[model_selected_action], a=aVaep_global, time_id=selected_team_id)
-                        st.pyplot(plotagem)
+                    if models_to_plot:
+                        for model_selected_action in models_to_plot:
+                            st.write(f"#### Gráfico Z-Rank para: {ACTION_NAME_TRANSLATIONS.get(model_selected_action.name, model_selected_action.name)} ({selected_team_name})")
+                            plotagem = futmetria.plot_z_rank(modelos=[model_selected_action], a=aVaep_global, time_id=selected_team_id)
+                            st.pyplot(plotagem)
+                            plt.close(plotagem) # Close the plot to prevent memory issues
                     else:
-                        st.error(f"Não foi possível encontrar o modelo para a ação '{selected_action_name}'.")
+                        st.error("Não foi possível encontrar modelos para os tipos de ação selecionados.")
+            else:
+                st.warning("Por favor, selecione um clube e pelo menos um tipo de ação para gerar a análise.")
         
     
     st.markdown("---")
@@ -505,6 +590,19 @@ elif st.session_state.page == 'player_analysis':
 
     st.header("📊 Top Jogadores por VAEP")
 
+    # --- NOVO: FILTRO POR TIME NA SIDEBAR ---
+    st.sidebar.subheader("Filtrar Jogadores")
+    
+    unique_team_ids_in_data = aVaep_global['team_id'].unique()
+    relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
+    team_names_for_dropdown = ['Todos os Times'] + relevant_teams['name'].sort_values().tolist()
+    
+    selected_team_filter_name = st.sidebar.selectbox(
+        label="Selecione um time para filtrar:",
+        options=team_names_for_dropdown,
+        index=0 # Default to 'Todos os Times'
+    )
+
     percentile_threshold = st.sidebar.slider(
         "Selecione o Percentil para Filtrar:",
         min_value=0.01,
@@ -514,14 +612,24 @@ elif st.session_state.page == 'player_analysis':
         help="Define o limiar de VAEP para considerar os 'melhores' jogadores."
     )
 
+    # Filtering `rankings_global` based on the selected team
+    if selected_team_filter_name == 'Todos os Times':
+        filtered_rankings = rankings_global
+    else:
+        selected_team_filter_id = relevant_teams[relevant_teams['name'] == selected_team_filter_name]['wyId'].iloc[0]
+        # Filter the original aVaep_global to get players of the selected team for ranking calculation
+        team_specific_aVaep = aVaep_global[aVaep_global['team_id'] == selected_team_filter_id]
+        filtered_rankings = futmetria.get_players_ranking_for_models(modelos_global, team_specific_aVaep)
+        
     overall_best_players_display = futmetria.rank_players_overall(
-        rankings_global, # Usando a variável global
-        modelos_global, # Usando a variável global
+        filtered_rankings, # Use the filtered rankings
+        modelos_global,
         percentile=percentile_threshold,
     )
+    
     player_ranking_df = futmetria.create_player_ranking_df(
         overall_best_players_display,
-        players_df_global, # Usando a variável global
+        players_df_global,
     )
 
     if not player_ranking_df.empty:
@@ -545,6 +653,7 @@ elif st.session_state.page == 'player_analysis':
 
         st.subheader("🔍 Detalhes de Jogador Individual")
 
+        # --- UPDATE: Player selectbox based on filtered players ---
         player_names = ["Selecione um jogador..."] + sorted(player_ranking_df["jogNome"].tolist())
         selected_player_name = st.selectbox("Escolha um jogador para ver os detalhes:", player_names)
 
@@ -567,18 +676,22 @@ elif st.session_state.page == 'player_analysis':
                     if model_name in selected_player_row["clusters"]:
                         if selected_player_row["clusters"][model_name]:
                             available_actions_for_player.append(model_name)
+            
+            # Translate the available action names for display
+            translated_available_actions_for_player = [ACTION_NAME_TRANSLATIONS.get(name, name) for name in available_actions_for_player]
+            translated_available_actions_for_player.sort()
 
-            available_actions_for_player = sorted(available_actions_for_player)
+            default_translated_selection = [ACTION_NAME_TRANSLATIONS["receival"]] if "receival" in available_actions_for_player else []
 
-            default_selection = ["receival"] if "receival" in available_actions_for_player else []
-
-            if available_actions_for_player:
-                selected_action_types = st.multiselect(
+            if translated_available_actions_for_player:
+                selected_translated_action_types = st.multiselect(
                     "Selecione o(s) tipo(s) de ação para plotar:",
-                    options=available_actions_for_player,
-                    default=default_selection,
+                    options=translated_available_actions_for_player,
+                    default=default_translated_selection,
                     help="Cada tipo de ação corresponde a um modelo e será plotado em um gráfico separado."
                 )
+                # Convert back to original names for internal logic
+                selected_action_types = [REVERSE_ACTION_TRANSLATIONS.get(name, name) for name in selected_translated_action_types]
 
                 if selected_action_types:
                     player_figures = futmetria.plot_player_rankings(
@@ -590,7 +703,7 @@ elif st.session_state.page == 'player_analysis':
 
                     if player_figures:
                         for action_type, fig_plot in player_figures.items():
-                            st.write(f"#### Gráfico para: {action_type}")
+                            st.write(f"#### Gráfico para: {ACTION_NAME_TRANSLATIONS.get(action_type, action_type)}")
                             st.pyplot(fig_plot)
                             plt.close(fig_plot)
                     else:
@@ -605,7 +718,7 @@ elif st.session_state.page == 'player_analysis':
             st.info("Selecione um jogador na caixa acima para ver seus detalhes e contribuição de ações.")
 
     else:
-        st.warning("Nenhum jogador encontrado para o percentil selecionado. Tente ajustar o percentil na barra lateral.")
+        st.warning("Nenhum jogador encontrado para o percentil ou time selecionado. Tente ajustar os filtros na barra lateral.")
     
     st.markdown("---")
     st.caption("Desenvolvido para análise de futebol com dados Wyscout, com clusterização soccermix e métricas VAEP.")
