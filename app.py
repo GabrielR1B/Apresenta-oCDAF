@@ -260,7 +260,7 @@ if st.sidebar.button("👕Análise de Jogadores"):
 if st.session_state.page == "home":
 
     # --- TÍTULO ---
-    st.title("⚽ Ciência de Dados Aplicada ao Futebol")
+    st.title("⚽ Futmetria")
     st.markdown("---")
 
     # --- INTRODUÇÃO ---
@@ -350,6 +350,7 @@ elif st.session_state.page == "team_analysis":
             "Análise de clusterização com VAEP global",
             "Análise comparativa entre dois clubes",
             "Análise Z-Rank - Time x Liga",
+            "xM - Melhor jogador por cluster"
         ],
         horizontal=True,  # Deixa os botões na horizontal
         label_visibility="collapsed",  # Oculta o label principal para um visual mais limpo
@@ -718,6 +719,91 @@ elif st.session_state.page == "team_analysis":
                                 a=aVaep_global,
                                 time_id=selected_team_id,
                             )
+                            st.pyplot(plotagem)
+                            plt.close(
+                                plotagem
+                            )  # Close the plot to prevent memory issues
+                    else:
+                        st.error(
+                            "Não foi possível encontrar modelos para os tipos de ação selecionados."
+                        )
+            else:
+                st.warning(
+                    "Por favor, selecione um clube e pelo menos um tipo de ação para gerar a análise."
+                )
+
+    ### --- OPÇÃO 4: Análise xM
+    elif analysis_type == "xM - Melhor jogador por cluster":
+        st.subheader("xM - Melhor jogador por cluster")
+        st.write(
+            "Selecione um clube e um ou mais tipos de ação para visualizar o melhor joagador de cada cluster."
+        )
+
+        # Usar colunas para organizar os dropdowns
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Dropdown de Clubes
+            unique_team_ids_in_data = aVaep_global["team_id"].unique()
+            relevant_teams = teams_df[teams_df["wyId"].isin(unique_team_ids_in_data)]
+            team_names_for_dropdown = relevant_teams["name"].sort_values().tolist()
+            selected_team_name = st.selectbox(
+                label="Selecione um clube:", options=team_names_for_dropdown
+            )
+
+        with col2:
+            # Multiselect de Ações (Clusters)
+            all_model_names = [
+                model.name for model in modelos_global if hasattr(model, "name")
+            ]
+            # Translate the model names for display
+            translated_model_names = [
+                ACTION_NAME_TRANSLATIONS.get(name, name) for name in all_model_names
+            ]
+            translated_model_names.sort()
+
+            # Get default selection in translated form
+            default_translated_selection = (
+                [ACTION_NAME_TRANSLATIONS["pass"]] if "pass" in all_model_names else []
+            )
+
+            selected_translated_action_names = st.multiselect(
+                label="Selecione uma ou mais ações:",
+                options=translated_model_names,
+                default=default_translated_selection,
+            )
+            # Convert back to original names for internal logic
+            selected_action_names = [
+                REVERSE_ACTION_TRANSLATIONS.get(name, name)
+                for name in selected_translated_action_names
+            ]
+
+        # Botão para acionar a análise
+        if st.button("Gerar Análise", type="primary", key="z_rank_analysis_button"):
+            if selected_team_name and selected_action_names:
+                with st.spinner("Processando e gerando os gráficos..."):
+
+                    selected_team_id = relevant_teams[
+                        relevant_teams["name"] == selected_team_name
+                    ]["wyId"].iloc[0]
+                    models_to_plot = [
+                        model
+                        for model in modelos_global
+                        if model.name in selected_action_names
+                    ]
+
+                    if models_to_plot:
+                        for model_selected_action in models_to_plot:
+                            st.write(
+                                f"#### Melhor jogador por xM por cluster {ACTION_NAME_TRANSLATIONS.get(model_selected_action.name, model_selected_action.name)} ({selected_team_name})"
+                            )
+                            plotagem = futmetria.plot_xM_rank_jogs(
+                                modelos=[model_selected_action],
+                                a=aVaep_global,
+                                jogs=players_df_global,
+                                team_id=selected_team_id,
+                            )
+
                             st.pyplot(plotagem)
                             plt.close(
                                 plotagem
