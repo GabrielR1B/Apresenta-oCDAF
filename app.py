@@ -74,7 +74,6 @@ def get_team_vaep(team_id):
 
     # --- PASSO 1: VERIFICAR SE O ARQUIVO JÁ EXISTE ---
     if output_path.is_file():
-        st.info(f"Carregando dados VAEP para o time {team_id} a partir do cache em disco...")
         aVaep = pd.read_parquet(output_path)
         st.success("Dados carregados com sucesso!")
         return aVaep
