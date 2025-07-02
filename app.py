@@ -367,22 +367,10 @@ elif st.session_state.page == "player_analysis":
     st.title("⚽ Análise de Ações e Ranking de Jogadores")
     st.markdown("---")
 
-    analysis_type = st.radio(
-        label="Escolha por qual métrica deseja ordenar os jogadores:",
-        options=[
-            "Z-Score em relação ao VAEP do cluster",
-            "Percentual em relação ao VAEP médio do cluster",
-        ],
-        horizontal=True,  # Deixa os botões na horizontal
-    )
-    st.markdown("---")
-
-    rank_by = "zscore" if "Z-Score" in analysis_type else "perc"
-
     rankings = calculate_player_rankings(
         modelos_global,
         aVaep_global,
-        rank_by,
+        "zscore",
     )
 
     analysis_type = st.radio(
@@ -503,7 +491,7 @@ elif st.session_state.page == "player_analysis":
                         modelos_global,
                         num_players=len(player_ranking_df),
                         wanted_actions=selected_action_types,
-                        show_score=rank_by,
+                        show_score="zscore" if compare_value == "rank" else compare_value,
                     )
 
                     if player_figures:
