@@ -856,8 +856,6 @@ def plot_xM_rank(modelos, a, jog_id, rem):
 
 def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
     for m in modelos:
-        if m.name in rem:
-            continue
         evento = a[a.type_name == m.name].copy()
         evento["x_end"] = evento["x"] + evento["dx"]
         evento["y_end"] = evento["y"] + evento["dy"]
@@ -869,40 +867,53 @@ def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
 
         # Contagem de ações por cluster
         cluster_counts = evento["cluster"].value_counts()
-        count_norm = mcolors.Normalize(
-            vmin=cluster_counts.min(), vmax=cluster_counts.max()
-        )
+        count_norm = mcolors.Normalize(vmin=cluster_counts.min(), vmax=cluster_counts.max())
 
         # Campo
-        pitch = Pitch(
-            pitch_type="custom", pitch_length=105, pitch_width=68, line_zorder=2
-        )
+        pitch = Pitch(pitch_type='custom', pitch_length=105, pitch_width=68, line_zorder=2)
         fig, ax = pitch.draw(figsize=(12, 8))
         ax.set_title(f"Melhor Jogador por Cluster - {m.name}", fontsize=16)
 
+        # Armazenar todos os percentuais máximos para normalização global
+        max_percs = []
+
+        # Primeiro loop para coletar máximos
+        perc_por_cluster = {}
         for cluster_id in sorted(evento["cluster"].unique()):
             cluster_data = evento[evento["cluster"] == cluster_id]
-
-            # VAEP médio por jogador e por time
-            jog_means = cluster_data.groupby("player_id")["vaep_value"].mean().dropna()
-            team_cluster_data = cluster_data[cluster_data["team_id"] == team_id]
-            mean_team = team_cluster_data["vaep_value"].mean()
-
-            # Evita divisão por zero
-            if pd.isna(mean_team) or mean_team == 0 or jog_means.empty:
-                best_id = None
-                color = (0.5, 0.5, 0.5, 1.0)  # cinza neutro
+            mean_cluster = cluster_data["vaep_value"].mean()
+            jog_means = cluster_data.groupby("player_id")["vaep_value"].mean()
+            perc_players = ((jog_means / mean_cluster) - 1) * 100
+            if not perc_players.empty:
+                for best_id in perc_players.sort_values(ascending=False).index:
+                    if pd.notna(best_id):
+                        best_perc = perc_players[best_id]
+                        perc_por_cluster[cluster_id] = (best_id, best_perc)
+                        max_percs.append(best_perc)
+                        break
+                else:
+                    # Nenhum válido encontrado
+                    perc_por_cluster[cluster_id] = (-1, 0)
             else:
-                # Melhor jogador do cluster
-                perc_players = ((jog_means / mean_team) - 1) * 100
-                best_id = perc_players.idxmax()
-                max_diff = perc_players.max()
-                min_diff = perc_players.min()
+                perc_por_cluster[cluster_id] = (-1, 0)
 
-                # Normalizador e cor
-                diff_norm = mcolors.Normalize(vmin=min_diff, vmax=max_diff)
-                cmap = cm.get_cmap("RdYlGn")
-                color = cmap(diff_norm(max_diff))
+
+        # Normalizador de cores baseado na melhor performance relativa
+        if max_percs:
+            perc_max = max(max_percs)
+        else:
+            perc_max = 1  # evita divisão por zero
+        perc_norm = mcolors.Normalize(vmin=0, vmax=perc_max)
+        cmap = cm.get_cmap("RdYlGn")
+
+        # Segundo loop para plotagem
+        for cluster_id, (best_id, best_perc) in perc_por_cluster.items():
+            cluster_data = evento[evento["cluster"] == cluster_id]
+            nome_jogador = jogs.loc[jogs.player_id == best_id, "jogNome"].values
+            nome_jogador = nome_jogador[0] if len(nome_jogador) > 0 else "Desconhecido"
+
+            # Cor baseada no quão melhor o jogador é
+            color = cmap(perc_norm(best_perc))
 
             # Largura da seta
             count = cluster_counts.get(cluster_id, 0)
@@ -922,45 +933,188 @@ def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
             y_end_stretched = y_end + stretch_factor * dy / norm_vec
 
             # Contorno preto
-            ax.annotate(
-                "",
-                xy=(x_end_stretched, y_end_stretched),
-                xytext=(x_start, y_start),
-                arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3),
-            )
+            ax.annotate("",
+                        xy=(x_end_stretched, y_end_stretched), xytext=(x_start, y_start),
+                        arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3))
 
             # Seta colorida
-            ax.annotate(
-                "",
-                xy=(x_end, y_end),
-                xytext=(x_start, y_start),
-                arrowprops=dict(arrowstyle="->", color=color, lw=lw),
-            )
+            ax.annotate("",
+                        xy=(x_end, y_end), xytext=(x_start, y_start),
+                        arrowprops=dict(arrowstyle="->", color=color, lw=lw))
 
             # Elipse
             gauss = m.submodels[cluster_id]
             add_ellips(ax, gauss.mean, gauss.cov, color=color, alpha=1)
 
             # Nome do jogador
-            if best_id is not None and best_id in jogs.player_id.values:
-                nome = jogs.loc[jogs.player_id == best_id, "jogNome"].values[0]
-            else:
-                nome = "Desconhecido"
-
-            # Texto no centro do cluster
             ax.text(
-                gauss.mean[0],
-                gauss.mean[1],
-                nome,
-                color="white",
-                fontsize=10,
-                ha="center",
-                va="center",
-                path_effects=[withStroke(linewidth=3, foreground="black")],
+                gauss.mean[0], gauss.mean[1], nome_jogador,
+                color="white", fontsize=10, ha="center", va="center",
+                path_effects=[withStroke(linewidth=3, foreground="black")]
             )
 
         plt.show()
 
+def plot_modelo_vaep(m, evento, ax, title):
+    evento = evento[evento.type_name == m.name].copy()
+    evento["x_end"] = evento["x"] + evento["dx"]
+    evento["y_end"] = evento["y"] + evento["dy"]
+
+    pos = evento[["x", "y"]]
+    probs = m.predict_proba(pos)
+    evento["cluster"] = probs.argmax(axis=1)
+
+    cluster_vaep = evento.groupby("cluster")["vaep_value"].mean()
+    cluster_counts = evento["cluster"].value_counts()
+
+    vaep_norm = mcolors.Normalize(vmin=cluster_vaep.min(), vmax=cluster_vaep.max())
+    count_norm = mcolors.Normalize(vmin=cluster_counts.min(), vmax=cluster_counts.max())
+    cmap = plt.get_cmap("RdYlGn")
+
+    ax.set_title(title, fontsize=14)
+
+    for cluster_id in sorted(evento["cluster"].unique()):
+        cluster_data = evento[evento["cluster"] == cluster_id]
+
+        vaep_avg = cluster_vaep[cluster_id]
+        color = cmap(vaep_norm(vaep_avg))
+
+        count = cluster_counts[cluster_id]
+        base_width = 2.5
+        dynamic_width = 8.0 * count_norm(count)
+        lw = base_width + dynamic_width
+
+        x_start = cluster_data["x"].mean()
+        y_start = cluster_data["y"].mean()
+        x_end = cluster_data["x_end"].mean()
+        y_end = cluster_data["y_end"].mean()
+
+        dx = x_end - x_start
+        dy = y_end - y_start
+        norm = np.sqrt(dx**2 + dy**2)
+        if norm == 0:
+            continue
+
+        stretch_factor = 0.5
+        x_end_stretched = x_end + stretch_factor * dx / norm
+        y_end_stretched = y_end + stretch_factor * dy / norm
+
+        # Contorno preto
+        ax.annotate("",
+            xy=(x_end_stretched, y_end_stretched), xytext=(x_start, y_start),
+            arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3))
+
+        # Seta colorida
+        ax.annotate("",
+            xy=(x_end, y_end), xytext=(x_start, y_start),
+            arrowprops=dict(arrowstyle="->", color=color, lw=lw))
+
+        # Elipse
+        gauss = m.submodels[cluster_id]
+        add_ellips(ax, gauss.mean, gauss.cov, color=color, alpha=1)
+
+        # Texto com número de ações
+        text_x = (x_start + x_end) / 2
+        text_y = (y_start + y_end) / 2
+        angle = np.degrees(np.arctan2(dy, dx))
+        if angle > 90:
+            angle -= 180
+        elif angle < -90:
+            angle += 180
+
+        ax.text(
+            text_x, text_y, f"{count}", fontsize=10,
+            color="white", ha="center", va="center",
+            rotation=angle,
+            path_effects=[withStroke(linewidth=3, foreground="black")]
+        )
+
+def plot_modelo_sucesso(m, evento, ax, title):
+    evento = evento[evento.type_name == m.name].copy()
+    evento["x_end"] = evento["x"] + evento["dx"]
+    evento["y_end"] = evento["y"] + evento["dy"]
+
+    pos = evento[["x", "y"]]
+    probs = m.predict_proba(pos)
+    evento["cluster"] = probs.argmax(axis=1)
+
+    # Taxa de sucesso por cluster
+    cluster_success = evento.groupby("cluster")["result_name"].apply(lambda x: (x == "success").mean())
+    cluster_counts = evento["cluster"].value_counts()
+
+    # Normalizadores
+    success_norm = mcolors.Normalize(vmin=cluster_success.min(), vmax=cluster_success.max())
+    count_norm = mcolors.Normalize(vmin=cluster_counts.min(), vmax=cluster_counts.max())
+    cmap = plt.get_cmap("RdYlGn")
+
+    ax.set_title(title, fontsize=14)
+
+    for cluster_id in sorted(evento["cluster"].unique()):
+        cluster_data = evento[evento["cluster"] == cluster_id]
+
+        success_rate = cluster_success[cluster_id]
+        color = cmap(success_norm(success_rate))
+
+        count = cluster_counts[cluster_id]
+        base_width = 2.5
+        dynamic_width = 8.0 * count_norm(count)
+        lw = base_width + dynamic_width
+
+        x_start = cluster_data["x"].mean()
+        y_start = cluster_data["y"].mean()
+        x_end = cluster_data["x_end"].mean()
+        y_end = cluster_data["y_end"].mean()
+
+        dx = x_end - x_start
+        dy = y_end - y_start
+        norm = np.sqrt(dx**2 + dy**2)
+        if norm == 0:
+            continue
+
+        stretch_factor = 0.5
+        x_end_stretched = x_end + stretch_factor * dx / norm
+        y_end_stretched = y_end + stretch_factor * dy / norm
+
+        # Contorno preto
+        ax.annotate("",
+            xy=(x_end_stretched, y_end_stretched), xytext=(x_start, y_start),
+            arrowprops=dict(arrowstyle="->", color="black", lw=lw + 3))
+
+        # Seta colorida
+        ax.annotate("",
+            xy=(x_end, y_end), xytext=(x_start, y_start),
+            arrowprops=dict(arrowstyle="->", color=color, lw=lw))
+
+        # Elipse
+        gauss = m.submodels[cluster_id]
+        add_ellips(ax, gauss.mean, gauss.cov, color=color, alpha=1)
+
+        # Texto com número de ações
+        text_x = (x_start + x_end) / 2
+        text_y = (y_start + y_end) / 2
+        angle = np.degrees(np.arctan2(dy, dx))
+        if angle > 90:
+            angle -= 180
+        elif angle < -90:
+            angle += 180
+
+        ax.text(
+            text_x, text_y, f"{count}", fontsize=10,
+            color="white", ha="center", va="center",
+            rotation=angle,
+            path_effects=[withStroke(linewidth=3, foreground="black")]
+        )
+
+def plot_att_comp_def_colunas(mA, mB, eA, eB):
+    
+    pitch = Pitch(pitch_type='custom', pitch_length=105, pitch_width=68, line_zorder=2)
+    fig, axs = pitch.draw(nrows=1, ncols=2, figsize=(18, 8))
+    fig.suptitle("Comparação entre times", fontsize=18)
+
+    plot_modelo_vaep(mA, eA, axs[0], title=mA.name)
+    plot_modelo_sucesso(mB, eB, axs[1], title=mB.name)
+    
+    return fig
 
 # ____________________________________________________________________main__________________________________________________________________________________#
 #                                                                                                                                                          #
@@ -1326,26 +1480,22 @@ def jogs_xM_time(spadl_df, jogs, teamId, rem=[]):  # falhas a se concertar
 
     eventos = atomicspadl.convert_to_atomic(spadl_df)
     time_df = eventos[eventos.team_id == teamId]
-
+    
     eventos_simples = gera_a(eventos=eventos)
-
+    
     a = gera_a(time_df)
     cat_weights = gera_cat_pesos(a)
     experiments = gera_exp(cat_weights)
-
+    
     X = a[["x", "y"]]
     loc_candidates = learn_mixture_models(X, cat_weights, experiments)
     len(loc_candidates)
     inspect_strategies(loc_candidates, 50)
-
+    
     eventVaep = vaep(spadl_df)
-    aVaep = eventos_simples.merge(
-        eventVaep[["original_event_id", "vaep_value"]],
-        on="original_event_id",
-        how="left",
-    )
+    aVaep = eventos_simples.merge(eventVaep[['original_event_id', 'vaep_value']], on='original_event_id', how='left')
     modelos = list(mix.ilp_select_models_bic(loc_candidates))
-
+    
     plot_xM_rank_jogs(modelos=modelos, a=aVaep, jogs=jogs, team_id=teamId, rem=rem)
 
 

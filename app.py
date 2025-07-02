@@ -448,8 +448,81 @@ elif st.session_state.page == 'team_analysis':
     ### --- OPÇÃO 3: Análise comparativa entre dois clubes ---
     elif analysis_type == "Análise comparativa entre dois clubes":
         st.subheader("Análise Comparativa entre Clubes")
-        st.info("Esta funcionalidade está em desenvolvimento. Aqui você poderá selecionar dois times e comparar seus estilos de jogo e eficácia.")
-        # Aqui você adicionaria o código para esta análise no futuro
+        st.info("Selecione 2 clubes e uma ação para cada clube para fazer uma análise vertical")
+    
+    col1,col2 = st.columns(2)
+    
+    with col1:
+        
+        unique_team_ids_in_data = aVaep_global['team_id'].unique()
+        relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
+        team_names_for_dropdown = relevant_teams['name'].sort_values().tolist()
+        selected_team_name_A = st.selectbox(
+            label="Selecione um clube A:",
+            options=team_names_for_dropdown
+        )
+        
+        all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
+        all_model_names.sort()
+        selected_action_name_A = st.selectbox(
+            label="Selecione uma ação A:",
+            options=all_model_names,
+        )
+        
+    with col2:
+        
+        unique_team_ids_in_data = aVaep_global['team_id'].unique()
+        relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
+        team_names_for_dropdown = relevant_teams['name'].sort_values().tolist()
+        selected_team_name_B = st.selectbox(
+            label="Selecione um clube B:",
+            options=team_names_for_dropdown
+        )
+        
+        all_model_names = [model.name for model in modelos_global if hasattr(model, 'name')]
+        all_model_names.sort()
+        selected_action_name_B = st.selectbox(
+            label="Selecione uma ação B:",
+            options=all_model_names,
+        )
+        
+    if st.button("Gerar Análise", type="primary"):
+        if selected_team_name_A and selected_action_name_A and selected_action_name_B and selected_team_name_B:
+            with st.spinner("Processando e gerando os gráficos..."):
+                
+                selected_team_id_A = relevant_teams[relevant_teams['name'] == selected_team_name_A]['wyId'].iloc[0]
+                for model in modelos_global:
+                    if model.name == selected_action_name_A:
+                        model_to_plot_A = model
+                
+                selected_team_id_B = relevant_teams[relevant_teams['name'] == selected_team_name_B]['wyId'].iloc[0]
+                for model in modelos_global:
+                    if model.name == selected_action_name_B:
+                        model_to_plot_B = model
+                
+                spadl_df = pd.read_csv(DATA_DIR / SPADL_CSV_FILE)
+                timedf = spadl_df[spadl_df.team_id == selected_team_id_B]
+                
+                atomic_spadl_df = atomicspadl.convert_to_atomic(timedf)
+                a_B = futmetria.gera_a(atomic_spadl_df)
+                a_B_suc = a_B.merge(spadl_df[["original_event_id", "result_name"]], on="original_event_id", how="left")
+                
+                vaepTime = aVaep_global[aVaep_global['team_id'] == selected_team_id_A]
+                
+                if model_to_plot_A and model_to_plot_B:
+                    st.write(f"#### Gráfico de comparação entre {model_to_plot_A.name} ({selected_team_name_A}) x {model_to_plot_B.name} ({selected_team_name_B})")
+                    
+                    plotagem = futmetria.plot_att_comp_def_colunas(mA=model_to_plot_A, mB=model_to_plot_B, eA=vaepTime, eB=a_B_suc)
+                    
+                    st.pyplot(plotagem)
+                    plt.close(plotagem) # Close the plot to prevent memory issues
+
+                else:
+                    st.error("Não foi possível encontrar modelos para os tipos de ação selecionados.")
+        else:
+            st.warning("Por favor, selecione um clube e pelo menos um tipo de ação para gerar a análise.")
+        
+        
     
     ### --- OPÇÃO 4: Análise Z-Rank - Time x Liga
     elif analysis_type == "Análise Z-Rank - Time x Liga":
