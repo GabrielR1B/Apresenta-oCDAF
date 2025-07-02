@@ -208,7 +208,7 @@ def plot(modelos, a):
 
             # Largura da seta baseada na quantidade de ações
             count = cluster_counts[cluster_id]
-            lw = 1 + 5 * count_norm(count)  # escala 1 a 6
+            lw = 1 + 10 * count_norm(count)  # escala 1 a 6
 
             # Médias de posição
             x_start = cluster_data["x"].mean()
