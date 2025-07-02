@@ -360,7 +360,7 @@ elif st.session_state.page == 'team_analysis':
             selected_action_names = [REVERSE_ACTION_TRANSLATIONS.get(name, name) for name in selected_translated_action_names]
         
         # Botão para acionar a análise
-        if st.button("Gerar Análise", type="primary"):
+        if st.button("Gerar Análise", type="primary", key="generate_analysis_global"):
             if selected_team_name and selected_action_names:
                 with st.spinner("Processando e gerando os gráficos..."):
                     
@@ -422,7 +422,7 @@ elif st.session_state.page == 'team_analysis':
             selected_action_names = [REVERSE_ACTION_TRANSLATIONS.get(name, name) for name in selected_translated_action_names]
         
         # Botão para acionar a análise
-        if st.button("Gerar Análise", type="primary"):
+        if st.button("Gerar Análise", type="primary", key="generate_analysis_team"):
             if selected_team_name and selected_action_names:
                 with st.spinner(f"Processando e gerando os gráficos para {selected_team_name}..."):
                     # Lógica para obter dados e modelo
@@ -486,7 +486,7 @@ elif st.session_state.page == 'team_analysis':
             options=all_model_names,
         )
         
-    if st.button("Gerar Análise", type="primary"):
+    if st.button("Gerar Análise", type="primary", key="compare_teams_analysis_button"):
         if selected_team_name_A and selected_action_name_A and selected_action_name_B and selected_team_name_B:
             with st.spinner("Processando e gerando os gráficos..."):
                 
@@ -561,7 +561,7 @@ elif st.session_state.page == 'team_analysis':
             selected_action_names = [REVERSE_ACTION_TRANSLATIONS.get(name, name) for name in selected_translated_action_names]
         
         # Botão para acionar a análise
-        if st.button("Gerar Análise", type="primary"):
+        if st.button("Gerar Análise", type="primary", key="z_rank_analysis_button"):
             if selected_team_name and selected_action_names:
                 with st.spinner("Processando e gerando os gráficos..."):
                     
