@@ -961,6 +961,56 @@ def plot_xM_rank_jogs(modelos, a, jogs, team_id, rem):  # falhas a se concertar
 
         plt.show()
 
+def plot_modelo(m, evento, ax, title): # plot para comparacao
+    print(evento)
+    evento = evento[evento.type_name == m.name].copy()
+    evento["x_end"] = evento["x"] + evento["dx"]
+    evento["y_end"] = evento["y"] + evento["dy"]
+
+    pos = evento[["x", "y"]]
+    probs = m.predict_proba(pos)
+    evento["cluster"] = probs.argmax(axis=1)
+
+    cluster_vaep = evento.groupby("cluster")["vaep_value"].mean()
+    cluster_counts = evento["cluster"].value_counts()
+
+    vaep_norm = mcolors.Normalize(vmin=cluster_vaep.min(), vmax=cluster_vaep.max())
+    count_norm = mcolors.Normalize(vmin=cluster_counts.min(), vmax=cluster_counts.max())
+    cmap = plt.get_cmap("RdYlGn")
+
+    ax.set_title(title, fontsize=14)
+
+def plot_comp(modeloA, modeloB, aA, aB): # plot comparacao
+    rem = ["red_card", "keeper_catch", "out", "goalkick", "yellow_card", "foul", "freekick"]
+    modeloB_dict = {m.name: m for m in modeloB}
+    
+    for mA in modeloA:
+        if mA.name in rem:
+            continue
+
+        mB = modeloB_dict.get(mA.name)
+
+        pitch = Pitch(pitch_type='custom', pitch_length=105, pitch_width=68, line_zorder=2)
+        fig, axs = pitch.draw(nrows=1, ncols=2, figsize=(18, 8))
+        fig.suptitle(f"Comparação 80% vs 20% - {mA.name}", fontsize=18)
+
+        plot_modelo(mA, aA, axs[0], title="Base 80%")
+        plot_modelo(mB, aB, axs[1], title="Base 20%")
+
+        plt.show()
+ 
+
+def plot_comp_2times(modeloA, modeloB, aA, aB): # plot comparacao dois times
+    rem = ["red_card", "keeper_catch", "out", "goalkick", "yellow_card", "foul", "freekick"]
+    pitch = Pitch(pitch_type='custom', pitch_length=105, pitch_width=68, line_zorder=2)
+    fig, axs = pitch.draw(nrows=1, ncols=2, figsize=(18, 8))
+    fig.suptitle("Comparação", fontsize=18)
+
+    plot_modelo(modeloA, aA, axs[0], title=modeloA.name)
+    plot_modelo(modeloB, aB, axs[1], title=modeloB.name)
+
+    plt.show()
+
 
 # ____________________________________________________________________main__________________________________________________________________________________#
 #                                                                                                                                                          #
@@ -1132,7 +1182,7 @@ def time_analize_z_rank(spadl_df, timeId, rem=[]):
     modelos = list(mix.ilp_select_models_bic(loc_candidates))
 
     plot_z_rank(modelos=modelos, a=aVaep, time_id=timeId, rem=rem)
-
+   
 
 def jog_analize(spadl_df, jogId, rem=[]):
 
@@ -1608,7 +1658,6 @@ def create_player_ranking_df(overall_best_players, players_df): # Renomeei 'play
     player_ranking_df = pd.DataFrame(player_ranking)
 
     return player_ranking_df
-
 
 
 def salvar_modelos(modelos, caminho_arquivo):

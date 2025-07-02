@@ -334,7 +334,6 @@ elif st.session_state.page == 'team_analysis':
                     else:
                         st.error(f"Não foi possível encontrar o modelo para a ação '{selected_action_name}'.")
 
-
     #### --- OPÇÃO 2: Análise de clusterização com VAEP por time ---
     elif analysis_type == "Análise de clusterização com VAEP por time":
         st.subheader("Análise de Ações e Clusters por Clube")
@@ -382,10 +381,74 @@ elif st.session_state.page == 'team_analysis':
 
     ### --- OPÇÃO 3: Análise comparativa entre dois clubes ---
     elif analysis_type == "Análise comparativa entre dois clubes":
-        st.subheader("Análise Comparativa entre Clubes")
-        st.info("Esta funcionalidade está em desenvolvimento. Aqui você poderá selecionar dois times e comparar seus estilos de jogo e eficácia.")
-        # Aqui você adicionaria o código para esta análise no futuro
-    
+        st.subheader("Análise entre os Clusters de Dois Clubes")
+        st.write("Selecione dois clubes e a ação que deseja compará-los")
+
+        # Usar colunas para organizar os dropdowns
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            # Dropdown Clube1
+            unique_team_ids_in_data = aVaep_global['team_id'].unique()
+            relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
+            team_names_for_dropdown1 = relevant_teams['name'].sort_values().tolist()
+            selected_team_name1 = st.selectbox(
+                label="Selecione clube 1:",
+                options=team_names_for_dropdown1
+            )
+
+        with col2:
+            # Dropdown de Ações time 1 (Clusters)
+            all_model_names1 = [model.name for model in modelos_global if hasattr(model, 'name')]
+            all_model_names1.sort()
+            selected_action_name1 = st.selectbox(
+                label="Selecione uma ação para clube 1:",
+                options=all_model_names1
+            )
+
+        with col3:
+            # Dropdown Clube2
+            unique_team_ids_in_data = aVaep_global['team_id'].unique()
+            relevant_teams = teams_df[teams_df['wyId'].isin(unique_team_ids_in_data)]
+            team_names_for_dropdown2 = relevant_teams['name'].sort_values().tolist()
+            selected_team_name2 = st.selectbox(
+                label="Selecione clube 2:",
+                options=team_names_for_dropdown2
+            )
+
+        with col4:
+            # Dropdown de Ações (Clusters)
+            all_model_names2 = [model.name for model in modelos_global if hasattr(model, 'name')]
+            all_model_names2.sort()
+            selected_action_name2 = st.selectbox(
+                label="Selecione uma ação para clube 2:",
+                options=all_model_names2
+            )
+        
+        # Botão para acionar a análise
+        if st.button("Gerar Análise", type="primary"):
+            if selected_team_name1 and selected_team_name2 and selected_action_name1 and selected_action_name2:
+                    
+                # Lógica para obter dados e modelo
+                selected_team_id1 = relevant_teams[relevant_teams['name'] == selected_team_name1]['wyId'].iloc[0]
+                selected_team_id2 = relevant_teams[relevant_teams['name'] == selected_team_name2]['wyId'].iloc[0]
+
+                vaep_selected_team1 = aVaep_global[aVaep_global.team_id == selected_team_id1].reset_index(drop=True)
+                vaep_selected_team2 = aVaep_global[aVaep_global.team_id == selected_team_id2].reset_index(drop=True)
+                
+                model_selected_action_list1 = [modelo for modelo in modelos_global if modelo.name == selected_action_name1]
+                model_selected_action_list2 = [modelo for modelo in modelos_global if modelo.name == selected_action_name2]
+                
+                if model_selected_action_list1 and model_selected_action_list2:
+                    model_selected_action1 = model_selected_action_list1[0]
+                    model_selected_action2 = model_selected_action_list2[0]
+
+                    # Chamar a função de plotagem
+                    plotagem = futmetria.plot_comp_2times(model_selected_action1, model_selected_action2, vaep_selected_team1, vaep_selected_team2)
+                    st.pyplot(plotagem)
+                else:
+                    st.error(f"Não foi possível encontrar o modelo para a ação para os clubes selecionados'.")
+ 
     ### --- OPÇÃO 4: Análise Z-Rank - Time x Liga
     elif analysis_type == "Análise Z-Rank - Time x Liga":
         st.subheader("Análise Comparativa Z-Rank - Time x Liga")
